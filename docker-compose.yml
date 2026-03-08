@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  cocoro-console:
+    build: .
+    container_name: cocoro-console
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist SQLite database and device identity
+      - cocoro_data:/app/.cocoro
+    environment:
+      # ─── cocoro-core connection ───────────────────
+      - COCORO_CORE_URL=${COCORO_CORE_URL:-http://host.docker.internal:8001}
+      - COCORO_CORE_API_KEY=${COCORO_CORE_API_KEY:-}
+      - COCORO_CORE_ENABLED=${COCORO_CORE_ENABLED:-false}
+      # ─── Security ─────────────────────────────────
+      - COCORO_ENCRYPT_CHAT=${COCORO_ENCRYPT_CHAT:-false}
+      - COCORO_PIN=${COCORO_PIN:-}
+    restart: unless-stopped
+    networks:
+      - cocoro-net
+
+networks:
+  cocoro-net:
+    driver: bridge
+
+volumes:
+  cocoro_data:
+    driver: local
