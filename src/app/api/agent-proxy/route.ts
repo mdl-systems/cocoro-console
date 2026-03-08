@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ─── モックデータ（cocoro-agent 未起動時のフォールバック） ──
-function getMockData(path: string): unknown {
+function getMockData(path: string): Record<string, unknown> {
     if (path === '/agents') {
         return {
             agents: [

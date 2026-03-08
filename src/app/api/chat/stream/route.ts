@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '@/db';
 import { checkRate, requireSession } from '@/core/api-helper';
-import { coreChat, CORE_ENABLED } from '@/lib/cocoro-core';
+import { coreChatStream, CORE_ENABLED } from '@/lib/cocoro-core';
 import { encryptMessage } from '@/lib/chat-crypto';
 
 // ─── Mock responses ───────────────────────────────────────────
@@ -59,7 +59,7 @@ function createStream(handler: (send: (event: string, data: unknown) => void, do
                 const done = () => controller.close();
                 try {
                     await handler(send, done);
-                } catch (err) {
+                } catch {
                     send('error', { message: 'Stream error' });
                     done();
                 }
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         .run(userMsgId, conversationId, 'user', encryptMessage(message), now);
 
     return createStream(async (send, done) => {
-        // Emit conversation context so client can update URL/state
+        // Emit conversation context
         send('meta', {
             conversation_id: conversationId,
             user_message_id: userMsgId,
@@ -123,44 +123,51 @@ export async function POST(request: NextRequest) {
         let fullContent = '';
 
         if (CORE_ENABLED) {
-            // ── Real cocoro-core call ──────────────────────────
-            const coreRes = await coreChat(message, core_session_id);
+            // ── 真のSSEストリーミング（cocoro-sdk経由）──────────
+            const stream = await coreChatStream(message, core_session_id);
 
-            if (coreRes) {
-                // Simulate streaming by chunking the response
-                const words = coreRes.response.split(/(?<=\s)/);
-                for (const chunk of words) {
-                    fullContent += chunk;
-                    send('chunk', { text: chunk });
-                    await new Promise(r => setTimeout(r, 20));
+            if (stream) {
+                try {
+                    for await (const chunk of stream) {
+                        fullContent += chunk.text;
+                        send('chunk', { text: chunk.text });
+                    }
+
+                    // 完了メタ情報（emotion, action等）
+                    const meta = await stream.final();
+                    send('done', {
+                        id: assistantMsgId,
+                        conversation_id: conversationId,
+                        action: meta?.action ?? 'talk',
+                        emotion: meta?.emotion?.dominant ?? 'neutral',
+                        core_session_id: meta?.sessionId ?? core_session_id,
+                    });
+                } catch (err) {
+                    console.error('[stream] cocoro-core streaming error:', err);
+                    // ストリーム途中エラー → フォールバック
+                    if (!fullContent) {
+                        fullContent = getMockResponse(message);
+                        for (const char of fullContent.split('')) {
+                            send('chunk', { text: char });
+                            await new Promise(r => setTimeout(r, 18));
+                        }
+                    }
+                    send('done', { id: assistantMsgId, conversation_id: conversationId, action: 'fallback' });
                 }
-
-                send('done', {
-                    id: assistantMsgId,
-                    conversation_id: conversationId,
-                    action: coreRes.action,
-                    emotion: coreRes.emotion,
-                    task_id: coreRes.task_id,
-                    core_session_id: coreRes.session_id,
-                });
             } else {
-                // Core unavailable — fall back to mock
+                // cocoro-core 接続不可 → モックストリームにフォールバック
                 fullContent = getMockResponse(message);
-                const chars = fullContent.split('');
-                for (const char of chars) {
+                for (const char of fullContent.split('')) {
                     send('chunk', { text: char });
                     await new Promise(r => setTimeout(r, 18));
                 }
                 send('done', { id: assistantMsgId, conversation_id: conversationId, action: 'mock' });
             }
         } else {
-            // ── Mock streaming mode ────────────────────────────
-            // Add a small initial delay for realism
+            // ── モックストリームモード ────────────────────────────
             await new Promise(r => setTimeout(r, 400));
-
             fullContent = getMockResponse(message);
-            const chars = fullContent.split('');
-            for (const char of chars) {
+            for (const char of fullContent.split('')) {
                 send('chunk', { text: char });
                 await new Promise(r => setTimeout(r, 18));
             }
