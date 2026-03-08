@@ -9,48 +9,26 @@ const CORE_URL = process.env.COCORO_CORE_URL || 'http://192.168.50.92:8001';
 const CORE_API_KEY = process.env.COCORO_CORE_API_KEY || '';
 const CORE_ENABLED = process.env.COCORO_CORE_ENABLED === 'true';
 
-// ─── Token Cache ──────────────────────────────────────────────
-let cachedToken: string | null = null;
-let tokenExpiry: number = 0;
-
-async function getToken(): Promise<string | null> {
-    if (!CORE_ENABLED || !CORE_API_KEY) return null;
-
-    if (cachedToken && Date.now() < tokenExpiry - 60_000) {
-        return cachedToken;
-    }
-
-    try {
-        const res = await fetch(`${CORE_URL}/auth/token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ api_key: CORE_API_KEY }),
-            signal: AbortSignal.timeout(5000),
-        });
-
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        cachedToken = data.access_token || data.token || null;
-        tokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
-        return cachedToken;
-    } catch {
-        return null;
-    }
+// ─── Auth helper ────────────────────────────────────────────
+// cocoro-core uses the API key directly as a Bearer token (no JWT endpoint).
+function getAuthHeaders() {
+    if (!CORE_API_KEY) return null;
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CORE_API_KEY}`,
+    };
 }
 
 // ─── Core request helpers ─────────────────────────────────────
 async function corePost<T>(path: string, body: unknown): Promise<T | null> {
-    const token = await getToken();
-    if (!token) return null;
+    if (!CORE_ENABLED) return null;
+    const headers = getAuthHeaders();
+    if (!headers) return null;
 
     try {
         const res = await fetch(`${CORE_URL}${path}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
+            headers,
             body: JSON.stringify(body),
             signal: AbortSignal.timeout(30_000),
         });
@@ -66,12 +44,13 @@ async function corePost<T>(path: string, body: unknown): Promise<T | null> {
 }
 
 async function coreGet<T>(path: string): Promise<T | null> {
-    const token = await getToken();
-    if (!token) return null;
+    if (!CORE_ENABLED) return null;
+    const headers = getAuthHeaders();
+    if (!headers) return null;
 
     try {
         const res = await fetch(`${CORE_URL}${path}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
+            headers: { 'Authorization': headers.Authorization },
             signal: AbortSignal.timeout(10_000),
         });
         if (!res.ok) return null;
