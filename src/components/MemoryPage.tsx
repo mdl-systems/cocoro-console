@@ -29,6 +29,7 @@ export default function MemoryPage() {
     const [showAdd, setShowAdd] = useState(false);
     const [newContent, setNewContent] = useState('');
     const [newType, setNewType] = useState<'short_term' | 'long_term'>('long_term');
+    const [dataSource, setDataSource] = useState<'core' | 'local' | null>(null);
 
     async function fetchMemories() {
         try {
@@ -37,10 +38,12 @@ export default function MemoryPage() {
             const data = await res.json();
             setMemories(data.memories);
             setStats(data.by_type);
+            setDataSource(data.source ?? 'local');
         } catch { /* ignore */ } finally { setLoading(false); }
     }
 
     useEffect(() => { fetchMemories(); }, [filter]);
+
 
     async function addMemory() {
         if (!newContent.trim()) return;
@@ -59,7 +62,21 @@ export default function MemoryPage() {
         <div className="flex-1 flex flex-col h-screen overflow-y-auto">
             <div className="flex items-center justify-between px-8 py-6" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div>
-                    <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>メモリ管理</h2>
+                    <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>メモリ管理</h2>
+                        {dataSource === 'core' && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full"
+                                style={{ background: 'rgba(74,222,128,0.12)', color: 'var(--success)' }}>
+                                cocoro-core ★ リアル
+                            </span>
+                        )}
+                        {dataSource === 'local' && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full"
+                                style={{ background: 'rgba(216, 120, 152, 0.1)', color: 'var(--foreground-muted)' }}>
+                                ローカル DB
+                            </span>
+                        )}
+                    </div>
                     <p className="text-sm mt-1 flex items-center gap-1" style={{ color: 'var(--foreground-muted)' }}>
                         <Lock size={12} /> すべてのメモリはAES-256で暗号化されています
                     </p>

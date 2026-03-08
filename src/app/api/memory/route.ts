@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '@/db';
 import { validateBody, MemoryCreateSchema } from '@/core/validators';
 import { checkRate, requireSession, jsonSuccess, jsonError } from '@/core/api-helper';
+import { coreMemoryStats, coreMemoryList, CORE_ENABLED } from '@/lib/cocoro-core';
 
 export async function GET(request: NextRequest) {
     const rateLimited = checkRate(request);
@@ -12,28 +13,53 @@ export async function GET(request: NextRequest) {
     if (sessionCheck) return sessionCheck;
 
     try {
-        const db = getDatabase();
-        const type = request.nextUrl.searchParams.get('type');
+        const type = request.nextUrl.searchParams.get('type') ?? undefined;
 
-        let memories;
-        if (type) {
-            memories = db.prepare('SELECT * FROM memory_entries WHERE type = ? ORDER BY created_at DESC').all(type);
-        } else {
-            memories = db.prepare('SELECT * FROM memory_entries ORDER BY created_at DESC').all();
+        // ── Try cocoro-core first ──────────────────────────────
+        if (CORE_ENABLED) {
+            const [coreMemories, coreStats] = await Promise.all([
+                coreMemoryList(type, 100),
+                coreMemoryStats(),
+            ]);
+
+            if (coreMemories !== null) {
+                const byType = {
+                    short_term: coreStats?.short_term ?? 0,
+                    long_term: coreStats?.long_term ?? 0,
+                    vector: coreStats?.vector ?? 0,
+                };
+                // Normalise field names to match UI expectations
+                const memories = coreMemories.map(m => ({
+                    id: m.id,
+                    type: m.type,
+                    content: m.content,
+                    category: m.category,
+                    timestamp: m.created_at,
+                    importance: m.importance,
+                }));
+                return jsonSuccess({ memories, total: memories.length, by_type: byType, source: 'core' });
+            }
         }
 
-        const counts = db.prepare(`
-      SELECT type, COUNT(*) as count FROM memory_entries GROUP BY type
-    `).all() as Array<{ type: string; count: number }>;
+        // ── Fallback: local SQLite ─────────────────────────────
+        const db = getDatabase();
+        const memories = type
+            ? db.prepare('SELECT * FROM memory_entries WHERE type = ? ORDER BY created_at DESC').all(type)
+            : db.prepare('SELECT * FROM memory_entries ORDER BY created_at DESC').all();
+
+        const counts = db.prepare(
+            'SELECT type, COUNT(*) as count FROM memory_entries GROUP BY type'
+        ).all() as Array<{ type: string; count: number }>;
 
         const byType: Record<string, number> = { short_term: 0, long_term: 0, vector: 0 };
         for (const row of counts) byType[row.type] = row.count;
 
-        return jsonSuccess({ memories, total: memories.length, by_type: byType });
+        return jsonSuccess({ memories, total: (memories as unknown[]).length, by_type: byType, source: 'local' });
     } catch {
         return jsonError('INTERNAL_ERROR', 'Failed to get memories', 500);
     }
 }
+
 
 export async function POST(request: NextRequest) {
     const rateLimited = checkRate(request);

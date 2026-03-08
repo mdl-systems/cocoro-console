@@ -1,64 +1,173 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect, useCallback } from 'react';
+import { apiPost, apiDelete } from '@/lib/api-client';
+import CocoroLogo from '@/components/CocoroLogo';
+import Sidebar, { NavPage, Conversation } from '@/components/Sidebar';
+import ChatPage from '@/components/ChatPage';
+import AgentsPage from '@/components/AgentsPage';
+import NodePage from '@/components/NodePage';
+import MemoryPage from '@/components/MemoryPage';
+import SecurityPage from '@/components/SecurityPage';
+import SettingsPage from '@/components/SettingsPage';
+import LockScreen from '@/components/LockScreen';
+
+export default function ConsolePage() {
+  const [currentPage, setCurrentPage] = useState<NavPage>('chat');
+  const [nickname, setNickname] = useState('ユーザー');
+  const [locked, setLocked] = useState(false);
+  const [pinRequired, setPinRequired] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Conversation state
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+
+  // Init
+  useEffect(() => {
+    async function init() {
+      try {
+        const sessionRes = await fetch('/api/session');
+        const sessionData = await sessionRes.json();
+
+        if (!sessionData.authenticated) {
+          await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create' }),
+          });
+        } else {
+          setLocked(sessionData.locked);
+          setPinRequired(sessionData.pin_required || false);
+        }
+
+        const profileRes = await fetch('/api/profile');
+        const profile = await profileRes.json();
+        if (profile.nickname) setNickname(profile.nickname);
+      } catch { /* Show UI even if APIs fail */ }
+      finally { setLoading(false); }
+    }
+    init();
+  }, []);
+
+  // Fetch conversation list
+  const fetchConversations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/chat?list=1');
+      const data = await res.json();
+      setConversations(data.conversations || []);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!loading && !locked) {
+      fetchConversations();
+    }
+  }, [loading, locked, fetchConversations]);
+
+  // Session keep-alive
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/session');
+        const data = await res.json();
+        if (data.locked) setLocked(true);
+        if (data.expired) {
+          await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'create' }),
+          });
+          setLocked(false);
+        }
+      } catch { /* ignore */ }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleUnlock = useCallback(async (pin?: string) => {
+    try {
+      const res = await apiPost('/api/session', { action: 'unlock', pin });
+      const data = await res.json();
+      if (data.success) setLocked(false);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Chat actions
+  const handleNewChat = useCallback(() => {
+    setActiveConversationId(null);
+    setCurrentPage('chat');
+  }, []);
+
+  const handleSelectConversation = useCallback((id: string) => {
+    setActiveConversationId(id);
+    setCurrentPage('chat');
+  }, []);
+
+  const handleConversationCreated = useCallback((id: string) => {
+    setActiveConversationId(id);
+    fetchConversations();
+  }, [fetchConversations]);
+
+  const handleDeleteConversation = useCallback(async (id: string) => {
+    try {
+      await apiDelete(`/api/chat?conversation_id=${id}`);
+      setConversations(prev => prev.filter(c => c.id !== id));
+      if (activeConversationId === id) {
+        setActiveConversationId(null);
+      }
+    } catch { /* ignore */ }
+  }, [activeConversationId]);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center" style={{ background: 'var(--background)' }}>
+        <CocoroLogo size={48} glow />
+      </div>
+    );
+  }
+
+  if (locked) {
+    return <LockScreen nickname={nickname} onUnlock={handleUnlock} requirePin={pinRequired} />;
+  }
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'chat':
+        return (
+          <ChatPage
+            conversationId={activeConversationId}
+            onConversationCreated={handleConversationCreated}
+          />
+        );
+      case 'agents': return <AgentsPage />;
+      case 'node': return <NodePage />;
+      case 'memory': return <MemoryPage />;
+      case 'security': return <SecurityPage />;
+      case 'settings': return <SettingsPage />;
+      default:
+        return (
+          <ChatPage
+            conversationId={activeConversationId}
+            onConversationCreated={handleConversationCreated}
+          />
+        );
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <div className="flex h-screen" style={{ background: 'var(--background)' }}>
+      <Sidebar
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
+        onNewChat={handleNewChat}
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onDeleteConversation={handleDeleteConversation}
+      />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {renderPage()}
       </main>
     </div>
   );

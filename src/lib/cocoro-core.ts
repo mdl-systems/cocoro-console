@@ -2,7 +2,7 @@
  * Cocoro Core API Client
  *
  * Handles JWT token acquisition and authenticated requests to cocoro-core.
- * Falls back to mock mode when COCORO_CORE_ENABLED=false or core is unreachable.
+ * Falls back gracefully when COCORO_CORE_ENABLED=false or core is unreachable.
  */
 
 const CORE_URL = process.env.COCORO_CORE_URL || 'http://192.168.50.92:8001';
@@ -16,7 +16,6 @@ let tokenExpiry: number = 0;
 async function getToken(): Promise<string | null> {
     if (!CORE_ENABLED || !CORE_API_KEY) return null;
 
-    // Return cached token if still valid (leave 60s margin)
     if (cachedToken && Date.now() < tokenExpiry - 60_000) {
         return cachedToken;
     }
@@ -33,7 +32,6 @@ async function getToken(): Promise<string | null> {
 
         const data = await res.json();
         cachedToken = data.access_token || data.token || null;
-        // Default JWT lifetime = 1 hour
         tokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
         return cachedToken;
     } catch {
@@ -41,7 +39,7 @@ async function getToken(): Promise<string | null> {
     }
 }
 
-// ─── Core API call ────────────────────────────────────────────
+// ─── Core request helpers ─────────────────────────────────────
 async function corePost<T>(path: string, body: unknown): Promise<T | null> {
     const token = await getToken();
     if (!token) return null;
@@ -56,12 +54,10 @@ async function corePost<T>(path: string, body: unknown): Promise<T | null> {
             body: JSON.stringify(body),
             signal: AbortSignal.timeout(30_000),
         });
-
         if (!res.ok) {
             console.error(`[cocoro-core] ${path} failed: ${res.status}`);
             return null;
         }
-
         return await res.json() as T;
     } catch (err) {
         console.error(`[cocoro-core] ${path} error:`, err);
@@ -78,7 +74,6 @@ async function coreGet<T>(path: string): Promise<T | null> {
             headers: { 'Authorization': `Bearer ${token}` },
             signal: AbortSignal.timeout(10_000),
         });
-
         if (!res.ok) return null;
         return await res.json() as T;
     } catch {
@@ -105,33 +100,100 @@ export async function coreChat(
     });
 }
 
-// ─── Health / Status ─────────────────────────────────────────
+// ─── Health ───────────────────────────────────────────────────
 export async function coreHealth(): Promise<boolean> {
     if (!CORE_ENABLED) return false;
     try {
-        const res = await fetch(`${CORE_URL}/health`, {
-            signal: AbortSignal.timeout(3000),
-        });
+        const res = await fetch(`${CORE_URL}/health`, { signal: AbortSignal.timeout(3000) });
         return res.ok;
     } catch {
         return false;
     }
 }
 
-export async function coreNodeStatus(): Promise<unknown> {
-    return coreGet('/monitor/dashboard');
+// ─── Node / Monitor Dashboard ─────────────────────────────────
+export interface CoreDashboard {
+    status: string;
+    uptime: number;
+    cpu_usage: number;
+    memory_usage: number;
+    active_agents: number;
+    tasks_today: number;
+    emotion?: string;
+    sync_rate?: number;
 }
 
-export async function coreAgents(): Promise<unknown> {
-    return coreGet('/org/agents');
+export async function coreNodeStatus(): Promise<CoreDashboard | null> {
+    return coreGet<CoreDashboard>('/monitor/dashboard');
 }
 
-export async function coreMemoryStats(): Promise<unknown> {
-    return coreGet('/memory/stats');
+// ─── Emotion State ────────────────────────────────────────────
+export interface CoreEmotionState {
+    current_emotion: string;
+    valence: number;        // -1.0 ~ 1.0
+    arousal: number;        // 0.0 ~ 1.0
+    sync_rate: number;      // 0.0 ~ 1.0
+    dominant_trait: string;
+    updated_at: string;
 }
 
-export async function coreEmotionState(): Promise<unknown> {
-    return coreGet('/emotion/state');
+export async function coreEmotionState(): Promise<CoreEmotionState | null> {
+    return coreGet<CoreEmotionState>('/emotion/state');
+}
+
+// ─── Memory ───────────────────────────────────────────────────
+export interface CoreMemoryEntry {
+    id: string;
+    type: 'short_term' | 'long_term' | 'vector';
+    content: string;
+    category: string;
+    importance: number;
+    created_at: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface CoreMemoryStats {
+    total: number;
+    short_term: number;
+    long_term: number;
+    vector: number;
+    last_updated: string;
+}
+
+export async function coreMemoryStats(): Promise<CoreMemoryStats | null> {
+    return coreGet<CoreMemoryStats>('/memory/stats');
+}
+
+export async function coreMemoryList(
+    type?: string,
+    limit = 50
+): Promise<CoreMemoryEntry[] | null> {
+    const q = type ? `?type=${type}&limit=${limit}` : `?limit=${limit}`;
+    const res = await coreGet<{ memories: CoreMemoryEntry[] }>(`/memory/list${q}`);
+    return res?.memories ?? null;
+}
+
+export async function coreMemorySearch(query: string): Promise<CoreMemoryEntry[] | null> {
+    const res = await corePost<{ results: CoreMemoryEntry[] }>(
+        '/memory/search',
+        { query, limit: 20 }
+    );
+    return res?.results ?? null;
+}
+
+// ─── Agents ───────────────────────────────────────────────────
+export interface CoreAgent {
+    agent_id: string;
+    name: string;
+    type: string;
+    status: string;
+    enabled: boolean;
+    last_active?: string;
+}
+
+export async function coreAgents(): Promise<CoreAgent[] | null> {
+    const res = await coreGet<{ agents: CoreAgent[] }>('/org/agents');
+    return res?.agents ?? null;
 }
 
 export { CORE_ENABLED, CORE_URL };
