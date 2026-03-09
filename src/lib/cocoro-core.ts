@@ -14,8 +14,14 @@ import type { EmotionState, MemoryStats, MemorySearchResult } from '@mdl-systems
 export const CORE_URL = process.env.COCORO_CORE_URL || 'http://192.168.50.92:8001'
 export const CORE_ENABLED = process.env.COCORO_CORE_ENABLED === 'true'
 
-// ─── Singleton client ─────────────────────────────────────────
-let _client: CocoroClient | null = null
+// ─── Singleton client (globalThis でHMRをまたいでも保持) ──────
+// Next.js dev モードはモジュールをホットリロードするため、
+// module変数だと毎回リセットされ /auth/token が大量呼び出しされる。
+// globalThis に保持することで JWT キャッシュを維持する。
+declare global {
+    // eslint-disable-next-line no-var
+    var __cocoroClient: CocoroClient | null | undefined
+}
 
 function getClient(): CocoroClient | null {
     if (!CORE_ENABLED) return null
@@ -24,10 +30,10 @@ function getClient(): CocoroClient | null {
         console.warn('[cocoro-core] COCORO_CORE_API_KEY が未設定です')
         return null
     }
-    if (!_client) {
-        _client = new CocoroClient({ baseUrl: CORE_URL, apiKey })
+    if (!globalThis.__cocoroClient) {
+        globalThis.__cocoroClient = new CocoroClient({ baseUrl: CORE_URL, apiKey })
     }
-    return _client
+    return globalThis.__cocoroClient
 }
 
 // ─── 後方互換型定義 ──────────────────────────────────────────
@@ -240,10 +246,14 @@ export async function coreAgents(): Promise<CoreAgent[] | null> {
         return agents.map(a => ({
             agent_id: a.id,
             name: a.name,
-            type: a.role,
-            status: a.status,
-            enabled: a.status !== 'paused' && a.status !== 'error',
-            last_active: a.currentTask,
+            // SDK の Agent 型に role がない場合は department を使う（unknown 経由でキャスト）
+            type: ((a as unknown) as Record<string, unknown>).role as string
+                ?? ((a as unknown) as Record<string, unknown>).department as string
+                ?? 'agent',
+            status: a.status as CoreAgent['status'],
+            enabled: a.status !== 'offline',
+            // null は undefined に変換（CoreAgent 型は string | undefined）
+            last_active: a.currentTask ?? undefined,
         }))
     } catch (err) {
         console.error('[cocoro-core] agents error:', (err as Error).message)
