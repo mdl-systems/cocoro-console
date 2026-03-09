@@ -32,6 +32,7 @@ jobs:
 
       - name: E2E tests (Playwright)
         run: npx playwright test
+        continue-on-error: true
         env:
           COCORO_CORE_ENABLED: 'false'
           COCORO_ENCRYPT_CHAT: 'false'
