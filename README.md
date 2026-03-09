@@ -24,6 +24,7 @@ ChatGPT ライクな UI で、ローカルファーストのプライバシー�
 |---------|------|
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
+| Core API | `@mdl-systems/cocoro-sdk` (ローカルパッケージ) |
 | Style | Vanilla CSS（クリームテーマ）|
 | Animation | Framer Motion |
 | Markdown | react-markdown + remark-gfm |
@@ -184,3 +185,4 @@ cocoro-console/
 | 2026-03-09 | Memory 検索バー（ベクトル検索 + SQLite フォールバック） |
 | 2026-03-09 | ユニットテスト 27件（Vitest：crypto / chat-crypto / sessions） |
 | 2026-03-09 | GitHub Actions CI（push 毎に自動テスト）|
+| 2026-03-09 | 公式 `@mdl-systems/cocoro-sdk` 統合・真のSSE word-by-word streaming実装 |
