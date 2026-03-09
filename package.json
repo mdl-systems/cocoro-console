@@ -15,7 +15,6 @@
     "e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@mdl-systems/cocoro-sdk": "file:../cocoro-sdk/mdl-systems-cocoro-sdk-0.1.0.tgz",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/uuid": "^10.0.0",
@@ -43,5 +42,8 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "@mdl-systems/cocoro-sdk": "file:../cocoro-sdk/mdl-systems-cocoro-sdk-0.1.0.tgz"
   }
 }
