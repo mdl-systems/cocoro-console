@@ -155,13 +155,56 @@ export async function POST(request: NextRequest) {
                     send('done', { id: assistantMsgId, conversation_id: conversationId, action: 'fallback' });
                 }
             } else {
-                // cocoro-core 接続不可 → モックストリームにフォールバック
-                fullContent = getMockResponse(message);
-                for (const char of fullContent.split('')) {
-                    send('chunk', { text: char });
-                    await new Promise(r => setTimeout(r, 18));
+                // SDK JWT認証失敗 → Bearer APIキーで /chat を直接callする
+                const apiKey = process.env.COCORO_CORE_API_KEY;
+                const coreUrl = process.env.COCORO_CORE_URL || 'http://192.168.50.92:8001';
+                let usedDirectFetch = false;
+
+                if (apiKey) {
+                    try {
+                        const chatRes = await fetch(`${coreUrl}/chat`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${apiKey}`,
+                            },
+                            body: JSON.stringify({ message, session_id: core_session_id }),
+                        });
+
+                        if (chatRes.ok) {
+                            const chatData = await chatRes.json();
+                            fullContent = chatData.response ?? chatData.text ?? '';
+                            const directSessionId = chatData.session_id ?? core_session_id;
+                            // 文字単位でSSEを送信（ストリーミング風）
+                            for (const char of fullContent.split('')) {
+                                send('chunk', { text: char });
+                                await new Promise(r => setTimeout(r, 12));
+                            }
+                            send('done', {
+                                id: assistantMsgId,
+                                conversation_id: conversationId,
+                                action: chatData.action ?? 'talk',
+                                emotion: chatData.emotion ?? 'neutral',
+                                core_session_id: directSessionId,
+                            });
+                            usedDirectFetch = true;
+                        } else {
+                            console.error('[stream] direct /chat failed:', chatRes.status, await chatRes.text());
+                        }
+                    } catch (err) {
+                        console.error('[stream] direct /chat error:', err);
+                    }
                 }
-                send('done', { id: assistantMsgId, conversation_id: conversationId, action: 'mock' });
+
+                if (!usedDirectFetch) {
+                    // 最終フォールバック → モック
+                    fullContent = getMockResponse(message);
+                    for (const char of fullContent.split('')) {
+                        send('chunk', { text: char });
+                        await new Promise(r => setTimeout(r, 18));
+                    }
+                    send('done', { id: assistantMsgId, conversation_id: conversationId, action: 'mock' });
+                }
             }
         } else {
             // ── モックストリームモード ────────────────────────────
