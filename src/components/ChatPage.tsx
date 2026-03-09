@@ -46,6 +46,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
+    const pendingConvNotify = useRef<string | null>(null);
 
     const isEmpty = messages.length === 0;
 
@@ -140,7 +141,9 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                                 convIdFromServer = payload.conversation_id || convIdFromServer;
                                 if (!currentConvId && convIdFromServer) {
                                     setCurrentConvId(convIdFromServer);
-                                    onConversationCreated(convIdFromServer);
+                                    // Don't call onConversationCreated yet — defer until after stream
+                                    // to avoid parent re-render that would overwrite streaming state
+                                    pendingConvNotify.current = convIdFromServer;
                                 }
                             }
                             if (currentEvent === 'chunk' && payload.text !== undefined) {
@@ -166,6 +169,12 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                 if (m.id === userMsg.id) return { ...m, id: `user_${Date.now()}` };
                 return m;
             }));
+
+            // Now safely notify parent (stream is done, state won't be clobbered)
+            if (pendingConvNotify.current) {
+                onConversationCreated(pendingConvNotify.current);
+                pendingConvNotify.current = null;
+            }
 
         } catch (err: unknown) {
             if (err instanceof Error && err.name === 'AbortError') {
