@@ -23,6 +23,7 @@ ChatGPTライクなUIで、ローカルファーストのプライバシー重�
 |---------|------|
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
+| Core API | `@mdl-systems/cocoro-sdk` |
 | Style | Vanilla CSS（クリームテーマ）|
 | Animation | Framer Motion |
 | Markdown | react-markdown + remark-gfm + react-syntax-highlighter |
@@ -166,9 +167,9 @@ cocoro-console/
 - [x] チャット履歴暗号化（AES-256-GCM、COCORO_ENCRYPT_CHAT=true で有効化）
 - [x] Dockerコンテナ化（Dockerfile + docker-compose.yml）
 - [x] cocoro-agent 連動・タスク投入画面の実装
+- [x] ユニットテスト（Vitest 27件 全パス：crypto / chat-crypto / sessions）
+- [x] CI/CDパイプライン（GitHub Actions：push 毎に自動テスト）
 - [ ] E2Eテスト (Playwright)
-- [ ] ユニットテスト (Vitest)
-- [ ] CI/CDパイプライン（GitHub Actions）
 
 ---
 
@@ -178,3 +179,4 @@ cocoro-console/
 |------|---------|
 | 2026-03-08 | 初版・PIN認証・チャット暗号化・Docker対応 |
 | 2026-03-09 | cocoro-agent 連携・AgentsPage全面刷新（タスク投入・統計表示） |
+| 2026-03-09 | `@mdl-systems/cocoro-sdk` 統合・SSEストリーミング刷新 |
