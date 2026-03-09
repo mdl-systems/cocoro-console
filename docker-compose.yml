@@ -4,8 +4,9 @@ services:
   cocoro-console:
     build: .
     container_name: cocoro-console
-    ports:
-      - "3000:3000"
+    # ポートは nginx 経由でのみ公開（外部に直接公開しない）
+    expose:
+      - "3000"
     volumes:
       # Persist SQLite database and device identity
       - cocoro_data:/app/.cocoro
@@ -17,6 +18,19 @@ services:
       # ─── Security ─────────────────────────────────
       - COCORO_ENCRYPT_CHAT=${COCORO_ENCRYPT_CHAT:-false}
       - COCORO_PIN=${COCORO_PIN:-}
+    restart: unless-stopped
+    networks:
+      - cocoro-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: cocoro-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - cocoro-console
     restart: unless-stopped
     networks:
       - cocoro-net
