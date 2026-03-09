@@ -3,7 +3,9 @@ import path from 'path';
 
 export default defineConfig({
     test: {
-        environment: 'node',
+        // happy-dom は node API も動作するため全テストに適用可
+        // api-client.test.ts が document.cookie を使うためここで指定
+        environment: 'happy-dom',
         globals: true,
         include: ['src/**/*.test.ts'],
         coverage: {
