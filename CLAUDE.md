@@ -169,7 +169,7 @@ cocoro-console/
 - [x] cocoro-agent 連動・タスク投入画面の実装
 - [x] ユニットテスト（Vitest 27件 全パス：crypto / chat-crypto / sessions）
 - [x] CI/CDパイプライン（GitHub Actions：push 毎に自動テスト）
-- [ ] E2Eテスト (Playwright)
+- [x] E2Eテスト（Playwright 16件：startup / navigation / chat / lock）
 
 ---
 
