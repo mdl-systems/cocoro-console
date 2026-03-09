@@ -3,7 +3,7 @@ import { checkRate, requireSession, jsonSuccess, jsonError } from '@/core/api-he
 
 // cocoro-agent の URL（環境変数 or デフォルト）
 const AGENT_URL = process.env.COCORO_AGENT_URL ?? 'http://localhost:8002';
-const AGENT_KEY = process.env.COCORO_API_KEY ?? 'cocoro-dev-2026';
+const AGENT_KEY = process.env.COCORO_CORE_API_KEY ?? process.env.COCORO_API_KEY ?? 'cocoro-dev-2026';
 
 function agentHeaders() {
     return {
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     if (sessionCheck) return sessionCheck;
 
     const url = new URL(request.url);
+    // path パラメータは /agents?limit=10 のようにクエリを含む場合がある
     const path = url.searchParams.get('path') ?? '/agents';
 
     try {
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
         }
 
         const data = await res.json();
+        // データをそのまま返す（cocoro-agent のレスポンス構造を保持）
         return jsonSuccess(data);
     } catch (e) {
         // cocoro-agent が起動していない場合はモックデータを返す

@@ -21,6 +21,14 @@ interface NodeStatus {
     network: { interfaces: Record<string, string> };
     services: Record<string, string>;
     version: string;
+    // cocoro-core 拡張フィールド
+    core_connected?: boolean;
+    core_status?: string;
+    core_uptime?: number;
+    core_cpu?: number;
+    core_memory?: number;
+    core_active_connections?: number;
+    core_emotion?: string;
 }
 
 const serviceLabels: Record<string, string> = {
@@ -29,6 +37,7 @@ const serviceLabels: Record<string, string> = {
     identity_engine: 'ID エンジン',
     memory_engine: 'メモリエンジン',
     agent_runtime: 'エージェント',
+    cocoro_core: 'cocoro-core',
 };
 
 const statusColors: Record<string, string> = {
@@ -36,6 +45,8 @@ const statusColors: Record<string, string> = {
     active: 'var(--success)',
     standby: 'var(--warning)',
     stopped: 'var(--danger)',
+    offline: 'var(--danger)',
+    disabled: 'var(--foreground-muted)',
 };
 
 // ─── Emotion display config ───────────────────────────────────
@@ -103,10 +114,24 @@ export default function NodePage() {
                 fetch('/api/node'),
                 fetch('/api/node/emotion'),
             ]);
-            const nodeData = await nodeRes.json();
+            const nodeJson = await nodeRes.json();
+            // jsonSuccess ラッパー: { success: true, data: { ... } }
+            const nodeData: NodeStatus = nodeJson.data ?? nodeJson;
             setNode(nodeData);
+
+            // core_connected フラグがノードレスポンスにおける品質情報ソース
+            if (nodeData.core_connected) {
+                setCoreOnline(true);
+                // core_emotion が含まれる場合はそのまま使用
+                if (nodeData.core_emotion) {
+                    // emotion マップは別途エンドポイントから取得する
+                }
+            }
+
+            // /api/node/emotion で読み込む（CORE_ENABLED 時）
             if (emotionRes.ok) {
-                const emoData = await emotionRes.json();
+                const emoJson = await emotionRes.json();
+                const emoData = emoJson.data ?? emoJson;
                 if (emoData.emotion) {
                     setEmotion(emoData.emotion);
                     setCoreOnline(true);
