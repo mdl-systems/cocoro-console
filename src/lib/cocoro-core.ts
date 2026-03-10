@@ -212,9 +212,11 @@ export async function coreChatStream(
                 'Accept': 'text/event-stream',
             },
             body: JSON.stringify({ message, session_id: sessionId }),
+            signal: AbortSignal.timeout(30000), // SSE: 30秒タイムアウト
         })
 
         if (res.ok) {
+            console.info(`[cocoro-core] /chat/stream 接続成功 (${res.status})`)
             return res.body
                 ? res.body.pipeThrough(new TextDecoderStream())
                 : null
@@ -227,7 +229,8 @@ export async function coreChatStream(
         }
         console.info('[cocoro-core] /chat/stream は 404。/chat エンドポイントにフォールバック')
     } catch (err) {
-        console.error('[cocoro-core] stream fetch error:', (err as Error).message)
+        const msg = (err as Error).message
+        console.error('[cocoro-core] /chat/stream fetch error:', msg)
         return null
     }
 
