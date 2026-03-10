@@ -37,10 +37,13 @@ services:
     restart: unless-stopped
     networks:
       - cocoro-net
+      - docker_default
 
 networks:
   cocoro-net:
     driver: bridge
+  docker_default:
+    external: true
 
 volumes:
   cocoro_data:
