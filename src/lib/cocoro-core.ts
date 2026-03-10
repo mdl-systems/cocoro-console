@@ -476,3 +476,56 @@ export async function coreAgents(): Promise<CoreAgent[] | null> {
         last_active: a.currentTask ?? a.current_task ?? undefined,
     }))
 }
+
+// ─── Setup Wizard ────────────────────────────────────────────
+
+export interface SetupQuestion {
+    index: number
+    total: number
+    progress: number
+    id: string
+    text: string
+    type: 'open' | 'choice' | 'scale'
+    category: string
+    category_label: string
+    choices?: string[]
+}
+
+export interface SetupStartResponse {
+    session_id: string
+    mode: string
+    total_questions: number
+    question: SetupQuestion
+}
+
+export interface SetupAnswerResponse {
+    session_id: string
+    completed: boolean
+    question?: SetupQuestion
+}
+
+export interface SetupResultResponse {
+    session_id: string
+    personality: Record<string, unknown>
+    summary?: string
+}
+
+export async function setupStart(mode: 'boot' | 'deep' = 'boot'): Promise<SetupStartResponse | null> {
+    return corePost<SetupStartResponse>('/setup/start', { mode })
+}
+
+export async function setupAnswer(
+    sessionId: string,
+    questionId: string,
+    answer: string
+): Promise<SetupAnswerResponse | null> {
+    return corePost<SetupAnswerResponse>('/setup/answer', {
+        session_id: sessionId,
+        question_id: questionId,
+        answer,
+    })
+}
+
+export async function setupResult(sessionId: string): Promise<SetupResultResponse | null> {
+    return coreGet<SetupResultResponse>(`/setup/result/${sessionId}`)
+}

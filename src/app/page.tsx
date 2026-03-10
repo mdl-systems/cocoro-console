@@ -11,6 +11,7 @@ import MemoryPage from '@/components/MemoryPage';
 import SecurityPage from '@/components/SecurityPage';
 import SettingsPage from '@/components/SettingsPage';
 import LockScreen from '@/components/LockScreen';
+import SetupWizard from '@/components/SetupWizard';
 
 export default function ConsolePage() {
   const [currentPage, setCurrentPage] = useState<NavPage>('chat');
@@ -18,6 +19,7 @@ export default function ConsolePage() {
   const [locked, setLocked] = useState(false);
   const [pinRequired, setPinRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
 
   // Conversation state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -44,7 +46,12 @@ export default function ConsolePage() {
         const profileRes = await fetch('/api/profile');
         const profile = await profileRes.json();
         if (profile.nickname) setNickname(profile.nickname);
-      } catch { /* Show UI even if APIs fail */ }
+
+        // Check setup completion
+        const setupRes = await fetch('/api/setup?action=status');
+        const setupData = await setupRes.json();
+        setSetupCompleted(setupData?.data?.setup_completed ?? true);
+      } catch { /* Show UI even if APIs fail */ setSetupCompleted(true); }
       finally { setLoading(false); }
     }
     init();
@@ -119,7 +126,8 @@ export default function ConsolePage() {
     } catch { /* ignore */ }
   }, [activeConversationId]);
 
-  if (loading) {
+  // ── Loading screen ─────────────────────────────────────────
+  if (loading || setupCompleted === null) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ background: 'var(--background)' }}>
         <CocoroLogo size={48} glow />
@@ -127,6 +135,12 @@ export default function ConsolePage() {
     );
   }
 
+  // ── Boot Wizard (first launch) ─────────────────────────────
+  if (!setupCompleted) {
+    return <SetupWizard onComplete={() => setSetupCompleted(true)} />;
+  }
+
+  // ── Lock screen ────────────────────────────────────────────
   if (locked) {
     return <LockScreen nickname={nickname} onUnlock={handleUnlock} requirePin={pinRequired} />;
   }
