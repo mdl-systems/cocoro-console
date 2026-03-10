@@ -46,13 +46,23 @@ export default function ConsolePage() {
         const profileRes = await fetch('/api/profile');
         const profile = await profileRes.json();
         if (profile.nickname) setNickname(profile.nickname);
+      } catch { /* Show UI even if APIs fail */ }
 
-        // Check setup completion
+      // Setup status — separate try/catch to avoid false-positive skip
+      try {
         const setupRes = await fetch('/api/setup?action=status');
         const setupData = await setupRes.json();
-        setSetupCompleted(setupData?.data?.setup_completed ?? true);
-      } catch { /* Show UI even if APIs fail */ setSetupCompleted(true); }
-      finally { setLoading(false); }
+        // jsonSuccess spreads data flat: { success, setup_completed } (no .data wrapper)
+        const completed = setupData?.setup_completed ?? setupData?.data?.setup_completed ?? true;
+        console.info('[setup] status check:', JSON.stringify(setupData), '→ completed:', completed);
+        setSetupCompleted(completed);
+      } catch (e) {
+        // If setup status fetch fails, skip wizard to avoid blocking UI
+        console.warn('[setup] status fetch failed, skipping wizard:', (e as Error).message);
+        setSetupCompleted(true);
+      } finally {
+        setLoading(false);
+      }
     }
     init();
   }, []);
