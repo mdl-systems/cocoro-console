@@ -42,8 +42,5 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"
-  },
-  "optionalDependencies": {
-    "@mdl-systems/cocoro-sdk": "file:../cocoro-sdk/mdl-systems-cocoro-sdk-0.1.0.tgz"
   }
 }
