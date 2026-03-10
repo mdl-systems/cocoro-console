@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: 'Personal AI Node — Local Management Interface',
   icons: {
     icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
   },
 };
 
