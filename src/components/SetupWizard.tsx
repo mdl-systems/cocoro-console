@@ -13,7 +13,7 @@ interface SetupQuestion {
     progress: number;
     id: string;
     text: string;
-    type: 'open' | 'choice' | 'scale';
+    type: 'open' | 'choice' | 'scale' | 'ranking' | 'order';
     category: string;
     category_label: string;
     choices?: string[];
@@ -141,6 +141,72 @@ function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) 
                     {num}
                 </span>
             </div>
+        </div>
+    );
+}
+
+function RankingInput({ choices, value, onChange }: { choices: string[]; value: string; onChange: (v: string) => void }) {
+    // Parse current ordering from comma-separated value, fall back to original choices order
+    const ordered = value
+        ? value.split('|||').filter(Boolean)
+        : [...choices];
+
+    const move = (idx: number, dir: -1 | 1) => {
+        const next = [...ordered];
+        const target = idx + dir;
+        if (target < 0 || target >= next.length) return;
+        [next[idx], next[target]] = [next[target], next[idx]];
+        onChange(next.join('|||'));
+    };
+
+    // Init value on first render
+    if (!value && choices.length > 0) {
+        // defer to avoid render cycle
+        setTimeout(() => onChange(choices.join('|||')), 0);
+    }
+
+    return (
+        <div className="space-y-2">
+            {ordered.map((item, idx) => (
+                <div
+                    key={item}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                    style={{
+                        background: 'var(--background-secondary, #faf6f4)',
+                        border: '1.5px solid rgba(216,120,152,0.18)',
+                    }}
+                >
+                    <span
+                        className="text-xs font-bold w-5 text-center flex-shrink-0"
+                        style={{ color: '#D87898' }}
+                    >
+                        {idx + 1}
+                    </span>
+                    <span className="flex-1 text-sm" style={{ color: 'var(--foreground, #2a2a2a)' }}>
+                        {item}
+                    </span>
+                    <div className="flex flex-col gap-0.5">
+                        <button
+                            onClick={() => move(idx, -1)}
+                            disabled={idx === 0}
+                            className="px-2 py-0.5 rounded text-xs disabled:opacity-20 transition-opacity"
+                            style={{ color: '#c06080', background: 'rgba(216,120,152,0.10)' }}
+                            aria-label="上へ"
+                        >
+                            ▲
+                        </button>
+                        <button
+                            onClick={() => move(idx, 1)}
+                            disabled={idx === ordered.length - 1}
+                            className="px-2 py-0.5 rounded text-xs disabled:opacity-20 transition-opacity"
+                            style={{ color: '#c06080', background: 'rgba(216,120,152,0.10)' }}
+                            aria-label="下へ"
+                        >
+                            ▼
+                        </button>
+                    </div>
+                </div>
+            ))}
         </div>
     );
 }
@@ -388,6 +454,13 @@ export default function SetupWizard({ onComplete }: Props) {
                                 )}
                                 {question.type === 'scale' && (
                                     <ScaleInput value={answer || '5'} onChange={setAnswer} />
+                                )}
+                                {(question.type === 'ranking' || question.type === 'order') && question.choices && (
+                                    <RankingInput
+                                        choices={question.choices}
+                                        value={answer}
+                                        onChange={setAnswer}
+                                    />
                                 )}
                             </motion.div>
                         </AnimatePresence>
