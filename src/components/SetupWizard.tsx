@@ -19,6 +19,8 @@ interface SetupQuestion {
     choices?: string[];
     options?: string[];  // choices の別名フィールド
     items?: string[];   // ranking タイプで使用
+    left_label?: string;   // scale 左端ラベル
+    right_label?: string;  // scale 右端ラベル
 }
 
 interface SetupResult {
@@ -117,9 +119,15 @@ function ChoiceInput({ choices, value, onChange }: { choices: string[]; value: s
     );
 }
 
-function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function ScaleInput({ value, onChange, leftLabel, rightLabel }: {
+    value: string;
+    onChange: (v: string) => void;
+    leftLabel?: string;
+    rightLabel?: string;
+}) {
     const num = value ? parseInt(value) : 5;
-    const LABELS = ['まったくそうでない', 'とてもそう思う'];
+    const left = leftLabel ?? 'low';
+    const right = rightLabel ?? 'high';
 
     return (
         <div className="space-y-4">
@@ -135,7 +143,8 @@ function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) 
             />
             {/* Scale labels */}
             <div className="flex justify-between text-xs" style={{ color: 'var(--foreground-muted, #888)' }}>
-                {LABELS.map((l, i) => <span key={i}>{l}</span>)}
+                <span>{left}</span>
+                <span>{right}</span>
             </div>
             {/* Current value */}
             <div className="text-center">
@@ -353,8 +362,11 @@ export default function SetupWizard({ onComplete }: Props) {
         const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
 
         if (!question || !effectiveAnswer.trim() || submitting) return;
-        // 回答前に履歴へ追加
-        setHistory(prev => [...prev, { question: question!, answer: effectiveAnswer }]);
+        // 回答前に履歴へ追加（重複チェック: 同じ質問が末尾にある場合はスキップ）
+        setHistory(prev => {
+            if (prev[prev.length - 1]?.question.id === question!.id) return prev;
+            return [...prev, { question: question!, answer: effectiveAnswer }];
+        });
 
         setSubmitting(true);
         setError('');
@@ -403,8 +415,11 @@ export default function SetupWizard({ onComplete }: Props) {
     // 1問だけスキップ（空回答で次の質問へ）
     const handleSkip = useCallback(async () => {
         if (!question || submitting) return;
-        // スキップ前に履歴へ追加（戻るボタンで戻れるように）
-        setHistory(prev => [...prev, { question, answer: '' }]);
+        // スキップ前に履歴へ追加（重複チェック）
+        setHistory(prev => {
+            if (prev[prev.length - 1]?.question.id === question.id) return prev;
+            return [...prev, { question, answer: '' }];
+        });
         setSubmitting(true);
         setError('');
         try {
@@ -441,7 +456,23 @@ export default function SetupWizard({ onComplete }: Props) {
     }, [handleNext]);
 
     const isRankingQuestion = question?.type === 'ranking' || question?.type === 'order';
-    const canProceed = isRankingQuestion ? rankItems.length > 0 : !!answer.trim();
+    const isScaleQuestion = question?.type === 'scale';
+    // scale は常に次へ押せる（デフォルト値 5 が入っている）、ranking は items あれば OK
+    const canProceed = isScaleQuestion
+        ? true
+        : isRankingQuestion
+            ? rankItems.length > 0
+            : !!answer.trim();
+
+    // scale ラベル: left_label/right_label → なければ text を " vs " 分割
+    const scaleLeft = question?.left_label ?? (() => {
+        const parts = question?.text.split(' vs ') ?? [];
+        return parts[0]?.replace(/[「」]/g, '').trim() ?? 'low';
+    })();
+    const scaleRight = question?.right_label ?? (() => {
+        const parts = question?.text.split(' vs ') ?? [];
+        return parts[1]?.replace(/[「」]/g, '').split('」')[0].trim() ?? 'high';
+    })();
     const icon = question ? (CATEGORY_ICONS[question.category] ?? CATEGORY_ICONS.default) : '🌸';
 
     return (
@@ -557,7 +588,12 @@ export default function SetupWizard({ onComplete }: Props) {
                                     ) : null;
                                 })()}
                                 {question.type === 'scale' && (
-                                    <ScaleInput value={answer || '5'} onChange={setAnswer} />
+                                    <ScaleInput
+                                        value={answer || '5'}
+                                        onChange={setAnswer}
+                                        leftLabel={scaleLeft}
+                                        rightLabel={scaleRight}
+                                    />
                                 )}
                                 {(question.type === 'ranking' || question.type === 'order') && (
                                     <RankingInput
