@@ -464,14 +464,16 @@ export default function SetupWizard({ onComplete }: Props) {
             ? rankItems.length > 0
             : !!answer.trim();
 
-    // scale ラベル: left_label/right_label → なければ text を " vs " 分割
-    const scaleLeft = question?.left_label ?? (() => {
-        const parts = question?.text.split(' vs ') ?? [];
-        return parts[0]?.replace(/[「」]/g, '').trim() ?? 'low';
-    })();
-    const scaleRight = question?.right_label ?? (() => {
-        const parts = question?.text.split(' vs ') ?? [];
-        return parts[1]?.replace(/[「」]/g, '').split('」')[0].trim() ?? 'high';
+    // scale ラベル: left_label/right_label → なければ「XXX」vs「YYY」を正規表現でパース
+    const scaleLabels = (() => {
+        if (question?.left_label && question?.right_label) {
+            return { left: question.left_label, right: question.right_label };
+        }
+        const match = question?.text.match(/「([^」]+)」\s*vs\s*「([^」]+)」/);
+        return {
+            left: match?.[1] ?? 'low',
+            right: match?.[2] ?? 'high',
+        };
     })();
     const icon = question ? (CATEGORY_ICONS[question.category] ?? CATEGORY_ICONS.default) : '🌸';
 
@@ -591,8 +593,8 @@ export default function SetupWizard({ onComplete }: Props) {
                                     <ScaleInput
                                         value={answer || '5'}
                                         onChange={setAnswer}
-                                        leftLabel={scaleLeft}
-                                        rightLabel={scaleRight}
+                                        leftLabel={scaleLabels.left}
+                                        rightLabel={scaleLabels.right}
                                     />
                                 )}
                                 {(question.type === 'ranking' || question.type === 'order') && (
