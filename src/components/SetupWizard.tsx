@@ -17,6 +17,7 @@ interface SetupQuestion {
     category: string;
     category_label: string;
     choices?: string[];
+    options?: string[];  // choices の別名フィールド
     items?: string[];   // ranking タイプで使用
 }
 
@@ -270,6 +271,7 @@ export default function SetupWizard({ onComplete }: Props) {
     const [answer, setAnswer] = useState<string>('');
     const [rankItems, setRankItems] = useState<string[]>([]);
     const [originalItems, setOriginalItems] = useState<string[]>([]); // 質問文の【】に固定表示用
+    const [history, setHistory] = useState<{ question: SetupQuestion; answer: string }[]>([]);
     const [error, setError] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
     const [setupResult, setSetupResult] = useState<SetupResult>({});
@@ -315,6 +317,9 @@ export default function SetupWizard({ onComplete }: Props) {
         const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
 
         if (!question || !effectiveAnswer.trim() || submitting) return;
+        // 回答前に履歴へ追加
+        setHistory(prev => [...prev, { question: question!, answer: effectiveAnswer }]);
+
         setSubmitting(true);
         setError('');
 
@@ -353,6 +358,16 @@ export default function SetupWizard({ onComplete }: Props) {
             setSubmitting(false);
         }
     }, [question, answer, rankItems, sessionId, submitting]);
+
+    // 前の質問へ戻る（APIは呼ばず history から復元）
+    const handleBack = useCallback(() => {
+        if (history.length === 0) return;
+        const prev = history[history.length - 1];
+        setHistory(h => h.slice(0, -1));
+        setQuestion(prev.question);
+        setAnswer(prev.answer);
+        setError('');
+    }, [history]);
 
     // 1問だけスキップ（空回答で次の質問へ）
     const handleSkip = useCallback(async () => {
@@ -496,13 +511,16 @@ export default function SetupWizard({ onComplete }: Props) {
                                 {question.type === 'open' && (
                                     <OpenInput value={answer} onChange={setAnswer} />
                                 )}
-                                {question.type === 'choice' && question.choices && (
-                                    <ChoiceInput
-                                        choices={question.choices}
-                                        value={answer}
-                                        onChange={setAnswer}
-                                    />
-                                )}
+                                {question.type === 'choice' && (() => {
+                                    const choices = question.choices ?? question.options ?? [];
+                                    return choices.length > 0 ? (
+                                        <ChoiceInput
+                                            choices={choices}
+                                            value={answer}
+                                            onChange={setAnswer}
+                                        />
+                                    ) : null;
+                                })()}
                                 {question.type === 'scale' && (
                                     <ScaleInput value={answer || '5'} onChange={setAnswer} />
                                 )}
@@ -520,8 +538,19 @@ export default function SetupWizard({ onComplete }: Props) {
                             <p className="text-xs" style={{ color: '#e05070' }}>{error}</p>
                         )}
 
-                        {/* Actions */}
-                        <div className="flex gap-3 pt-1">
+                        {/* Actions: [← 戻る] [スキップ] [次へ →] */}
+                        <div className="flex gap-2 pt-1">
+                            {/* 戻るボタン: 1問目（履歴なし）は非表示 */}
+                            {history.length > 0 && (
+                                <button
+                                    onClick={handleBack}
+                                    disabled={submitting}
+                                    className="px-3 py-2.5 rounded-xl text-sm transition-colors"
+                                    style={{ color: 'var(--foreground-muted, #888)', border: '1px solid rgba(0,0,0,0.08)' }}
+                                >
+                                    ← 戻る
+                                </button>
+                            )}
                             <button
                                 onClick={handleSkip}
                                 disabled={submitting}
