@@ -269,14 +269,17 @@ export default function SetupWizard({ onComplete }: Props) {
     const [question, setQuestion] = useState<SetupQuestion | null>(null);
     const [answer, setAnswer] = useState<string>('');
     const [rankItems, setRankItems] = useState<string[]>([]);
+    const [originalItems, setOriginalItems] = useState<string[]>([]); // 質問文の【】に固定表示用
     const [error, setError] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
     const [setupResult, setSetupResult] = useState<SetupResult>({});
 
-    // ranking タイプ質問が変わるたびに rankItems をリセット
+    // ranking タイプ質問が変わるたびに rankItems と originalItems をリセット
     useEffect(() => {
         if (question?.type === 'ranking' || question?.type === 'order') {
-            setRankItems(question.items ?? question.choices ?? []);
+            const initial = question.items ?? question.choices ?? [];
+            setRankItems(initial);
+            setOriginalItems(initial); // 元の順序を固定保持
         }
     }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -350,6 +353,37 @@ export default function SetupWizard({ onComplete }: Props) {
             setSubmitting(false);
         }
     }, [question, answer, rankItems, sessionId, submitting]);
+
+    // 1問だけスキップ（空回答で次の質問へ）
+    const handleSkip = useCallback(async () => {
+        if (!question || submitting) return;
+        setSubmitting(true);
+        setError('');
+        try {
+            const res = await apiPost('/api/setup?action=answer', {
+                session_id: sessionId,
+                question_id: question.id,
+                answer: '',
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const completed = data.completed ?? data.data?.completed ?? false;
+            const nextQuestion = data.question ?? data.data?.question;
+            if (completed) {
+                setPhase('completing');
+                const resultRes = await apiGet(`/api/setup?action=result&session_id=${sessionId}`);
+                const resultData = await resultRes.json();
+                await apiPost('/api/setup?action=complete', {});
+                setSetupResult(resultData.personality ?? resultData.data ?? {});
+                setPhase('done');
+            } else if (nextQuestion) {
+                setQuestion(nextQuestion);
+                setAnswer('');
+            }
+        } catch { /* ignore skip errors */ } finally {
+            setSubmitting(false);
+        }
+    }, [question, sessionId, submitting]);
 
     // Handle Enter key for open questions
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -445,7 +479,7 @@ export default function SetupWizard({ onComplete }: Props) {
                                         </h3>
                                         {rankItems.length > 0 && (
                                             <p className="text-sm" style={{ color: 'var(--foreground-muted, #888)' }}>
-                                                【{rankItems.join(', ')}】
+                                                【{originalItems.join(', ')}】
                                             </p>
                                         )}
                                     </div>
@@ -489,7 +523,8 @@ export default function SetupWizard({ onComplete }: Props) {
                         {/* Actions */}
                         <div className="flex gap-3 pt-1">
                             <button
-                                onClick={onComplete}
+                                onClick={handleSkip}
+                                disabled={submitting}
                                 className="px-4 py-2.5 rounded-xl text-sm transition-colors"
                                 style={{ color: 'var(--foreground-muted, #888)', border: '1px solid rgba(0,0,0,0.08)' }}
                             >
