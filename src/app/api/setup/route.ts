@@ -64,14 +64,16 @@ export async function POST(request: NextRequest) {
     const sessionCheck = requireSession(request);
     if (sessionCheck) return sessionCheck;
 
-    let body: Record<string, unknown>;
+    let body: Record<string, unknown> = {};
     try {
         body = await request.json();
     } catch {
         return jsonError('BAD_REQUEST', 'Invalid JSON', 400);
     }
 
-    const action = body.action as string;
+    // action はクエリパラメータ優先、次にボディから取得
+    const { searchParams } = request.nextUrl;
+    const action = (searchParams.get('action') ?? body.action) as string;
 
     if (action === 'start') {
         const mode = (body.mode as 'boot' | 'deep') ?? 'boot';

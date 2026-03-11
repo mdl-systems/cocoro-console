@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CocoroLogo from './CocoroLogo';
-import { apiPost } from '@/lib/api-client';
+import { apiPost, apiGet } from '@/lib/api-client';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -224,10 +224,14 @@ export default function SetupWizard({ onComplete }: Props) {
     useEffect(() => {
         async function start() {
             try {
-                const res = await apiPost('/api/setup', { action: 'start', mode: 'boot' });
+                const res = await apiPost('/api/setup?action=start', { mode: 'boot' });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
-                if (data.success && data.data) {
+                if (data.success && data.question) {
+                    setSessionId(data.session_id);
+                    setQuestion(data.question);
+                    setPhase('question');
+                } else if (data.success && data.data) {
                     setSessionId(data.data.session_id);
                     setQuestion(data.data.question);
                     setPhase('question');
@@ -248,8 +252,7 @@ export default function SetupWizard({ onComplete }: Props) {
         setError('');
 
         try {
-            const res = await apiPost('/api/setup', {
-                action: 'answer',
+            const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
                 question_id: question.id,
                 answer: answer.trim(),
@@ -258,21 +261,23 @@ export default function SetupWizard({ onComplete }: Props) {
             const data = await res.json();
             if (!data.success) throw new Error(data.error || 'Answer failed');
 
-            const result = data.data as { completed: boolean; question?: SetupQuestion };
+            // jsonSuccess spreads flat: { success, completed, question? }
+            const completed = data.completed ?? data.data?.completed ?? false;
+            const nextQuestion = data.question ?? data.data?.question;
 
-            if (result.completed) {
+            if (completed) {
                 // Fetch final result
                 setPhase('completing');
-                const resultRes = await fetch(`/api/setup?action=result&session_id=${sessionId}`);
+                const resultRes = await apiGet(`/api/setup?action=result&session_id=${sessionId}`);
                 const resultData = await resultRes.json();
-                const finalResult = resultData.success ? resultData.data : {};
+                const finalResult = resultData.personality ?? resultData.data ?? {};
 
                 // Mark as complete in SQLite
-                await apiPost('/api/setup', { action: 'complete' });
+                await apiPost('/api/setup?action=complete', {});
                 setSetupResult(finalResult);
                 setPhase('done');
-            } else if (result.question) {
-                setQuestion(result.question);
+            } else if (nextQuestion) {
+                setQuestion(nextQuestion);
                 setAnswer('');
             }
         } catch (e) {
