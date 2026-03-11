@@ -320,6 +320,28 @@ export default function SetupWizard({ onComplete }: Props) {
         start();
     }, []);
 
+    // ─── 完了処理（result取得 → SQLite記録 → done画面）────────────
+    const finishSetup = useCallback(async () => {
+        console.log('[setup] finishSetup start, sessionId:', sessionId);
+        setPhase('completing');
+        try {
+            const resultRes = await apiGet(`/api/setup?action=result&session_id=${sessionId}`);
+            const resultData = await resultRes.json();
+            console.log('[setup] result response:', resultData);
+            const finalResult = resultData.personality ?? resultData.result ?? resultData.data ?? {};
+
+            await apiPost('/api/setup?action=complete', {});
+            console.log('[setup] complete OK, transitioning to done');
+            setSetupResult(finalResult);
+            setPhase('done');
+        } catch (e) {
+            console.error('[setup] finishSetup error:', e);
+            // エラーでも done に遷移して onComplete できるようにする
+            setSetupResult({});
+            setPhase('done');
+        }
+    }, [sessionId]);
+
     // Submit answer
     const handleNext = useCallback(async () => {
         // ranking タイプは rankItems をカンマ区切りで使用
@@ -341,33 +363,28 @@ export default function SetupWizard({ onComplete }: Props) {
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
+            console.log('[setup] answer response:', data);
             if (!data.success) throw new Error(data.error || 'Answer failed');
 
-            // jsonSuccess spreads flat: { success, completed, question? }
             const completed = data.completed ?? data.data?.completed ?? false;
             const nextQuestion = data.question ?? data.data?.question;
 
-            if (completed) {
-                // Fetch final result
-                setPhase('completing');
-                const resultRes = await apiGet(`/api/setup?action=result&session_id=${sessionId}`);
-                const resultData = await resultRes.json();
-                const finalResult = resultData.personality ?? resultData.data ?? {};
-
-                // Mark as complete in SQLite
-                await apiPost('/api/setup?action=complete', {});
-                setSetupResult(finalResult);
-                setPhase('done');
+            if (completed || (!nextQuestion && question.index >= question.total)) {
+                await finishSetup();
             } else if (nextQuestion) {
                 setQuestion(nextQuestion);
                 setAnswer('');
+            } else {
+                // nextQuestion もないが completed でもない（念のため finishSetup）
+                console.warn('[setup] no nextQuestion and not completed, forcing finish');
+                await finishSetup();
             }
         } catch (e) {
             setError(`回答の送信に失敗しました: ${(e as Error).message}`);
         } finally {
             setSubmitting(false);
         }
-    }, [question, answer, rankItems, sessionId, submitting]);
+    }, [question, answer, rankItems, sessionId, submitting, finishSetup]);
 
     // 前の質問へ戻る（APIは呼ばず history から復元）
     const handleBack = useCallback(() => {
@@ -394,23 +411,25 @@ export default function SetupWizard({ onComplete }: Props) {
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
+            console.log('[setup] skip response:', data);
             const completed = data.completed ?? data.data?.completed ?? false;
             const nextQuestion = data.question ?? data.data?.question;
-            if (completed) {
-                setPhase('completing');
-                const resultRes = await apiGet(`/api/setup?action=result&session_id=${sessionId}`);
-                const resultData = await resultRes.json();
-                await apiPost('/api/setup?action=complete', {});
-                setSetupResult(resultData.personality ?? resultData.data ?? {});
-                setPhase('done');
+            if (completed || (!nextQuestion && question.index >= question.total)) {
+                await finishSetup();
             } else if (nextQuestion) {
                 setQuestion(nextQuestion);
                 setAnswer('');
+            } else {
+                console.warn('[setup] skip: no nextQuestion, forcing finish');
+                await finishSetup();
             }
-        } catch { /* ignore skip errors */ } finally {
+        } catch (e) {
+            console.error('[setup] skip error:', e);
+            setError(`スキップに失敗しました: ${(e as Error).message}`);
+        } finally {
             setSubmitting(false);
         }
-    }, [question, sessionId, submitting]);
+    }, [question, sessionId, submitting, finishSetup]);
 
     // Handle Enter key for open questions
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
