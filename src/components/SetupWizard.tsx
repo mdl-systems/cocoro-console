@@ -17,6 +17,7 @@ interface SetupQuestion {
     category: string;
     category_label: string;
     choices?: string[];
+    items?: string[];   // ranking タイプで使用
 }
 
 interface SetupResult {
@@ -145,29 +146,18 @@ function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) 
     );
 }
 
-function RankingInput({ choices, value, onChange }: { choices: string[]; value: string; onChange: (v: string) => void }) {
-    // Parse current ordering from comma-separated value, fall back to original choices order
-    const ordered = value
-        ? value.split('|||').filter(Boolean)
-        : [...choices];
-
+function RankingInput({ items, onOrderChange }: { items: string[]; onOrderChange: (ordered: string[]) => void }) {
     const move = (idx: number, dir: -1 | 1) => {
-        const next = [...ordered];
+        const next = [...items];
         const target = idx + dir;
         if (target < 0 || target >= next.length) return;
         [next[idx], next[target]] = [next[target], next[idx]];
-        onChange(next.join('|||'));
+        onOrderChange(next);
     };
-
-    // Init value on first render
-    if (!value && choices.length > 0) {
-        // defer to avoid render cycle
-        setTimeout(() => onChange(choices.join('|||')), 0);
-    }
 
     return (
         <div className="space-y-2">
-            {ordered.map((item, idx) => (
+            {items.map((item, idx) => (
                 <div
                     key={item}
                     className="flex items-center gap-3 px-4 py-3 rounded-xl"
@@ -197,7 +187,7 @@ function RankingInput({ choices, value, onChange }: { choices: string[]; value: 
                         </button>
                         <button
                             onClick={() => move(idx, 1)}
-                            disabled={idx === ordered.length - 1}
+                            disabled={idx === items.length - 1}
                             className="px-2 py-0.5 rounded text-xs disabled:opacity-20 transition-opacity"
                             style={{ color: '#c06080', background: 'rgba(216,120,152,0.10)' }}
                             aria-label="下へ"
@@ -282,9 +272,17 @@ export default function SetupWizard({ onComplete }: Props) {
     const [sessionId, setSessionId] = useState<string>('');
     const [question, setQuestion] = useState<SetupQuestion | null>(null);
     const [answer, setAnswer] = useState<string>('');
+    const [rankItems, setRankItems] = useState<string[]>([]);
     const [error, setError] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
     const [setupResult, setSetupResult] = useState<SetupResult>({});
+
+    // ranking タイプ質問が変わるたびに rankItems をリセット
+    useEffect(() => {
+        if (question?.type === 'ranking' || question?.type === 'order') {
+            setRankItems(question.items ?? question.choices ?? []);
+        }
+    }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Start wizard
     useEffect(() => {
@@ -313,7 +311,11 @@ export default function SetupWizard({ onComplete }: Props) {
 
     // Submit answer
     const handleNext = useCallback(async () => {
-        if (!question || !answer.trim() || submitting) return;
+        // ranking タイプは rankItems をカンマ区切りで使用
+        const isRanking = question?.type === 'ranking' || question?.type === 'order';
+        const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
+
+        if (!question || !effectiveAnswer.trim() || submitting) return;
         setSubmitting(true);
         setError('');
 
@@ -321,7 +323,7 @@ export default function SetupWizard({ onComplete }: Props) {
             const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
                 question_id: question.id,
-                answer: answer.trim(),
+                answer: effectiveAnswer.trim(),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
@@ -351,13 +353,15 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [question, answer, sessionId, submitting]);
+    }, [question, answer, rankItems, sessionId, submitting]);
 
     // Handle Enter key for open questions
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && e.ctrlKey) handleNext();
     }, [handleNext]);
 
+    const isRankingQuestion = question?.type === 'ranking' || question?.type === 'order';
+    const canProceed = isRankingQuestion ? rankItems.length > 0 : !!answer.trim();
     const icon = question ? (CATEGORY_ICONS[question.category] ?? CATEGORY_ICONS.default) : '🌸';
 
     return (
@@ -455,11 +459,10 @@ export default function SetupWizard({ onComplete }: Props) {
                                 {question.type === 'scale' && (
                                     <ScaleInput value={answer || '5'} onChange={setAnswer} />
                                 )}
-                                {(question.type === 'ranking' || question.type === 'order') && question.choices && (
+                                {(question.type === 'ranking' || question.type === 'order') && (
                                     <RankingInput
-                                        choices={question.choices}
-                                        value={answer}
-                                        onChange={setAnswer}
+                                        items={rankItems}
+                                        onOrderChange={setRankItems}
                                     />
                                 )}
                             </motion.div>
@@ -481,7 +484,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             </button>
                             <button
                                 onClick={handleNext}
-                                disabled={!answer.trim() || submitting}
+                                disabled={!canProceed || submitting}
                                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-200 disabled:opacity-40"
                                 style={{ background: 'linear-gradient(135deg, #F0A8C0, #D87898)' }}
                             >
