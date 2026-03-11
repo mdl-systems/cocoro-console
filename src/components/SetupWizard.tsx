@@ -213,7 +213,10 @@ function CompletionScreen({ result, onStart }: { result: SetupResult; onStart: (
             animate={{ opacity: 1, scale: 1 }}
             className="text-center space-y-6"
         >
-            <CocoroLogo size={72} glow />
+            {/* ロゴ中央配置 */}
+            <div className="flex justify-center">
+                <CocoroLogo size={72} glow />
+            </div>
             <div>
                 <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--foreground, #2a2a2a)' }}>
                     セットアップ完了！
@@ -237,8 +240,9 @@ function CompletionScreen({ result, onStart }: { result: SetupResult; onStart: (
                 </div>
             )}
 
+            {/* 偶数件は2列、奇数/1件は1列にして空セルを防止 */}
             {traits.length > 0 && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${traits.length % 2 === 0 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {traits.map(([key, val]) => (
                         <div
                             key={key}
