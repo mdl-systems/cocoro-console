@@ -382,6 +382,8 @@ export default function SetupWizard({ onComplete }: Props) {
     // 1問だけスキップ（空回答で次の質問へ）
     const handleSkip = useCallback(async () => {
         if (!question || submitting) return;
+        // スキップ前に履歴へ追加（戻るボタンで戻れるように）
+        setHistory(prev => [...prev, { question, answer: '' }]);
         setSubmitting(true);
         setError('');
         try {
