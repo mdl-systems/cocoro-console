@@ -13,8 +13,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-// Routes that don't require session
-const PUBLIC_PATHS = ['/_next', '/favicon.ico', '/api/session'];
+// Routes that don't require session / CSRF (public or pre-session)
+const PUBLIC_PATHS = ['/_next', '/favicon.ico', '/api/session', '/api/setup'];
 
 // State-changing methods requiring CSRF
 const CSRF_METHODS = ['POST', 'PUT', 'DELETE', 'PATCH'];
