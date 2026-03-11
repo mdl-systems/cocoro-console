@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import CocoroLogo from './CocoroLogo';
 import { apiPost, apiGet } from '@/lib/api-client';
@@ -69,25 +69,28 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
     );
 }
 
-function OpenInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-    return (
-        <textarea
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            placeholder="ここに入力してください..."
-            rows={4}
-            className="w-full resize-none rounded-xl px-4 py-3 text-sm outline-none transition-all"
-            style={{
-                background: 'var(--background-secondary, #faf6f4)',
-                border: '1.5px solid rgba(216,120,152,0.25)',
-                color: 'var(--foreground, #2a2a2a)',
-                fontFamily: 'inherit',
-            }}
-            onFocus={e => { e.currentTarget.style.borderColor = 'rgba(216,120,152,0.6)'; }}
-            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(216,120,152,0.25)'; }}
-        />
-    );
-}
+const OpenInput = ({ value, onChange, textareaRef }: {
+    value: string;
+    onChange: (v: string) => void;
+    textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+}) => (
+    <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder="ここに入力してください..."
+        rows={4}
+        className="w-full resize-none rounded-xl px-4 py-3 text-sm outline-none transition-all"
+        style={{
+            background: 'var(--background-secondary, #faf6f4)',
+            border: '1.5px solid rgba(216,120,152,0.25)',
+            color: 'var(--foreground, #2a2a2a)',
+            fontFamily: 'inherit',
+        }}
+        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(216,120,152,0.6)'; }}
+        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(216,120,152,0.25)'; }}
+    />
+);
 
 function ChoiceInput({ choices, value, onChange }: { choices: string[]; value: string; onChange: (v: string) => void }) {
     return (
@@ -275,7 +278,14 @@ export default function SetupWizard({ onComplete }: Props) {
     const [error, setError] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
     const [setupResult, setSetupResult] = useState<SetupResult>({});
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+    // open タイプの質問に変わったら textarea にフォーカス
+    useEffect(() => {
+        if (question?.type === 'open') {
+            setTimeout(() => textareaRef.current?.focus(), 50);
+        }
+    }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     // ranking タイプ質問が変わるたびに rankItems と originalItems をリセット
     useEffect(() => {
         if (question?.type === 'ranking' || question?.type === 'order') {
@@ -509,7 +519,7 @@ export default function SetupWizard({ onComplete }: Props) {
 
                                 {/* Input */}
                                 {question.type === 'open' && (
-                                    <OpenInput value={answer} onChange={setAnswer} />
+                                    <OpenInput value={answer} onChange={setAnswer} textareaRef={textareaRef} />
                                 )}
                                 {question.type === 'choice' && (() => {
                                     const choices = question.choices ?? question.options ?? [];
@@ -538,26 +548,21 @@ export default function SetupWizard({ onComplete }: Props) {
                             <p className="text-xs" style={{ color: '#e05070' }}>{error}</p>
                         )}
 
-                        {/* Actions: [← 戻る] [スキップ] [次へ →] */}
+                        {/* Actions: [← 戻る] [次へ →] [スキップ] */}
                         <div className="flex gap-2 pt-1">
-                            {/* 戻るボタン: 1問目（履歴なし）は非表示 */}
-                            {history.length > 0 && (
-                                <button
-                                    onClick={handleBack}
-                                    disabled={submitting}
-                                    className="px-3 py-2.5 rounded-xl text-sm transition-colors"
-                                    style={{ color: 'var(--foreground-muted, #888)', border: '1px solid rgba(0,0,0,0.08)' }}
-                                >
-                                    ← 戻る
-                                </button>
-                            )}
+                            {/* 戻るボタン: 1問目（履歴なし）は 視覚的に非表示（レイアウト維持） */}
                             <button
-                                onClick={handleSkip}
-                                disabled={submitting}
-                                className="px-4 py-2.5 rounded-xl text-sm transition-colors"
-                                style={{ color: 'var(--foreground-muted, #888)', border: '1px solid rgba(0,0,0,0.08)' }}
+                                onClick={handleBack}
+                                disabled={submitting || history.length === 0}
+                                className="px-3 py-2.5 rounded-xl text-sm transition-all duration-200"
+                                style={{
+                                    color: 'var(--foreground-muted, #888)',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                    opacity: history.length === 0 ? 0 : 1,
+                                    pointerEvents: history.length === 0 ? 'none' : 'auto',
+                                }}
                             >
-                                スキップ
+                                ← 戻る
                             </button>
                             <button
                                 onClick={handleNext}
@@ -566,6 +571,14 @@ export default function SetupWizard({ onComplete }: Props) {
                                 style={{ background: 'linear-gradient(135deg, #F0A8C0, #D87898)' }}
                             >
                                 {submitting ? '送信中...' : question.index === question.total ? '完了' : '次へ →'}
+                            </button>
+                            <button
+                                onClick={handleSkip}
+                                disabled={submitting}
+                                className="px-3 py-2.5 rounded-xl text-xs transition-colors"
+                                style={{ color: 'var(--foreground-muted, #999)', border: '1px solid rgba(0,0,0,0.06)' }}
+                            >
+                                スキップ
                             </button>
                         </div>
 
