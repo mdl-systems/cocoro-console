@@ -53,6 +53,18 @@ npm run dev
 docker compose up -d
 ```
 
+### miniPC 環境での注意事項
+
+`.env` の `COCORO_CORE_URL` は **Docker コンテナ内部名** を使用してください：
+
+```bash
+# ✅ 正しい設定（Docker 内部からの接続）
+COCORO_CORE_URL=http://cocoro-core:8000
+
+# ❌ 誤った設定（コンテナ内からタイムアウトになります）
+COCORO_CORE_URL=http://192.168.50.92:8001
+```
+
 ---
 
 ## 環境変数
@@ -72,6 +84,14 @@ COCORO_PIN=                                  # 4 桁 PIN ロック（例: 1234�
 
 > `COCORO_CORE_ENABLED=false` の場合、高品質なモック SSE レスポンスが返ります。  
 > オフライン開発・デモ時はこのままで OK。
+
+> [!WARNING]
+> **miniPC（Docker 本番環境）の注意**: `COCORO_CORE_URL` は必ずコンテナ内部名を使用してください。  
+> 外部 IP（`192.168.50.92:8001` など）はコンテナ内からタイムアウトになります。
+> ```bash
+> COCORO_CORE_URL=http://cocoro-core:8000   # ✅ Docker 内部（正しい）
+> COCORO_CORE_URL=http://192.168.50.92:8001 # ❌ 外部 IP（タイムアウトになるため使用禁止）
+> ```
 
 ---
 
@@ -186,3 +206,5 @@ cocoro-console/
 | 2026-03-09 | ユニットテスト 27件（Vitest：crypto / chat-crypto / sessions） |
 | 2026-03-09 | GitHub Actions CI（push 毎に自動テスト）|
 | 2026-03-09 | 公式 `@mdl-systems/cocoro-sdk` 統合・真のSSE word-by-word streaming実装 |
+| 2026-03-10 | Boot Wizard UI 実装（初回セットアップ・人格プロファイル登録） |
+| 2026-03-11 | nginx `/api/*` ルーティング修正・cocoro-net 共有ネットワーク対応 |
