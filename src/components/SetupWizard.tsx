@@ -290,6 +290,7 @@ export default function SetupWizard({ onComplete }: Props) {
     const [history, setHistory] = useState<{ question: SetupQuestion; answer: string }[]>([]);
     const [error, setError] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
+    const [isTransitioning, setIsTransitioning] = useState(false); // 操作中の競合防止
     const [setupResult, setSetupResult] = useState<SetupResult>({});
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -361,7 +362,7 @@ export default function SetupWizard({ onComplete }: Props) {
         const isRanking = question?.type === 'ranking' || question?.type === 'order';
         const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
 
-        if (!question || !effectiveAnswer.trim() || submitting) return;
+        if (!question || !effectiveAnswer.trim() || submitting || isTransitioning) return;
         // 回答前に履歴へ追加（重複チェック: 同じ質問が末尾にある場合はスキップ）
         setHistory(prev => {
             if (prev[prev.length - 1]?.question.id === question!.id) return prev;
@@ -400,21 +401,24 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [question, answer, rankItems, sessionId, submitting, finishSetup]);
+    }, [question, answer, rankItems, sessionId, submitting, isTransitioning, finishSetup]);
 
     // 前の質問へ戻る（APIは呼ばず history から復元）
     const handleBack = useCallback(() => {
-        if (history.length === 0) return;
+        if (isTransitioning || history.length === 0) return;
+        setIsTransitioning(true);
         const prev = history[history.length - 1];
         setHistory(h => h.slice(0, -1));
         setQuestion(prev.question);
         setAnswer(prev.answer);
         setError('');
-    }, [history]);
+        // 次のレンダリング後に解除
+        setTimeout(() => setIsTransitioning(false), 100);
+    }, [history, isTransitioning]);
 
     // 1問だけスキップ（空回答で次の質問へ）
     const handleSkip = useCallback(async () => {
-        if (!question || submitting) return;
+        if (!question || submitting || isTransitioning) return;
         // スキップ前に履歴へ追加（重複チェック）
         setHistory(prev => {
             if (prev[prev.length - 1]?.question.id === question.id) return prev;
@@ -448,7 +452,7 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [question, sessionId, submitting, finishSetup]);
+    }, [question, sessionId, submitting, isTransitioning, finishSetup]);
 
     // Handle Enter key for open questions
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -616,7 +620,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             {/* 戻るボタン: 1問目（履歴なし）は 視覚的に非表示（レイアウト維持） */}
                             <button
                                 onClick={handleBack}
-                                disabled={submitting || history.length === 0}
+                                disabled={submitting || isTransitioning || history.length === 0}
                                 className="px-3 py-2.5 rounded-xl text-sm transition-all duration-200"
                                 style={{
                                     color: 'var(--foreground-muted, #888)',
@@ -629,7 +633,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             </button>
                             <button
                                 onClick={handleNext}
-                                disabled={!canProceed || submitting}
+                                disabled={!canProceed || submitting || isTransitioning}
                                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-200 disabled:opacity-40"
                                 style={{ background: 'linear-gradient(135deg, #F0A8C0, #D87898)' }}
                             >
@@ -637,7 +641,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             </button>
                             <button
                                 onClick={handleSkip}
-                                disabled={submitting}
+                                disabled={submitting || isTransitioning}
                                 className="px-3 py-2.5 rounded-xl text-xs transition-colors"
                                 style={{ color: 'var(--foreground-muted, #999)', border: '1px solid rgba(0,0,0,0.06)' }}
                             >
