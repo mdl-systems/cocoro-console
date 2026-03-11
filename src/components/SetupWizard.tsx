@@ -147,25 +147,41 @@ function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 function RankingInput({ items, onOrderChange }: { items: string[]; onOrderChange: (ordered: string[]) => void }) {
-    const move = (idx: number, dir: -1 | 1) => {
-        const next = [...items];
-        const target = idx + dir;
-        if (target < 0 || target >= next.length) return;
-        [next[idx], next[target]] = [next[target], next[idx]];
-        onOrderChange(next);
+    const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+    const handleDragStart = (index: number) => setDragIndex(index);
+
+    const handleDrop = (index: number) => {
+        if (dragIndex === null || dragIndex === index) return;
+        const newItems = [...items];
+        const [moved] = newItems.splice(dragIndex, 1);
+        newItems.splice(index, 0, moved);
+        onOrderChange(newItems);
+        setDragIndex(null);
     };
 
     return (
         <div className="space-y-2">
+            <p className="text-xs mb-3" style={{ color: 'var(--foreground-muted, #888)' }}>
+                ドラッグして順番を入れ替えてください
+            </p>
             {items.map((item, idx) => (
                 <div
                     key={item}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(idx)}
+                    onDragEnd={() => setDragIndex(null)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl select-none transition-opacity"
                     style={{
                         background: 'var(--background-secondary, #faf6f4)',
-                        border: '1.5px solid rgba(216,120,152,0.18)',
+                        border: `1.5px solid ${dragIndex === idx ? 'rgba(216,120,152,0.6)' : 'rgba(216,120,152,0.18)'}`,
+                        opacity: dragIndex === idx ? 0.5 : 1,
+                        cursor: 'grab',
                     }}
                 >
+                    <span className="text-base" style={{ color: 'rgba(216,120,152,0.5)', lineHeight: 1 }}>☰</span>
                     <span
                         className="text-xs font-bold w-5 text-center flex-shrink-0"
                         style={{ color: '#D87898' }}
@@ -175,26 +191,6 @@ function RankingInput({ items, onOrderChange }: { items: string[]; onOrderChange
                     <span className="flex-1 text-sm" style={{ color: 'var(--foreground, #2a2a2a)' }}>
                         {item}
                     </span>
-                    <div className="flex flex-col gap-0.5">
-                        <button
-                            onClick={() => move(idx, -1)}
-                            disabled={idx === 0}
-                            className="px-2 py-0.5 rounded text-xs disabled:opacity-20 transition-opacity"
-                            style={{ color: '#c06080', background: 'rgba(216,120,152,0.10)' }}
-                            aria-label="上へ"
-                        >
-                            ▲
-                        </button>
-                        <button
-                            onClick={() => move(idx, 1)}
-                            disabled={idx === items.length - 1}
-                            className="px-2 py-0.5 rounded text-xs disabled:opacity-20 transition-opacity"
-                            style={{ color: '#c06080', background: 'rgba(216,120,152,0.10)' }}
-                            aria-label="下へ"
-                        >
-                            ▼
-                        </button>
-                    </div>
                 </div>
             ))}
         </div>
@@ -438,12 +434,29 @@ export default function SetupWizard({ onComplete }: Props) {
                                 transition={{ duration: 0.25 }}
                                 className="space-y-4"
                             >
-                                <h3
-                                    className="text-base font-medium leading-relaxed"
-                                    style={{ color: 'var(--foreground, #2a2a2a)' }}
-                                >
-                                    {question.text}
-                                </h3>
+                                {/* ranking は質問文を ": " で分割してメインテキストと順位リストを別行表示 */}
+                                {(question.type === 'ranking' || question.type === 'order') ? (
+                                    <div className="space-y-2">
+                                        <h3
+                                            className="text-base font-medium leading-relaxed"
+                                            style={{ color: 'var(--foreground, #2a2a2a)' }}
+                                        >
+                                            {question.text.split(': ')[0]}
+                                        </h3>
+                                        {rankItems.length > 0 && (
+                                            <p className="text-sm" style={{ color: 'var(--foreground-muted, #888)' }}>
+                                                【{rankItems.join(', ')}】
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <h3
+                                        className="text-base font-medium leading-relaxed"
+                                        style={{ color: 'var(--foreground, #2a2a2a)' }}
+                                    >
+                                        {question.text}
+                                    </h3>
+                                )}
 
                                 {/* Input */}
                                 {question.type === 'open' && (
