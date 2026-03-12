@@ -215,6 +215,50 @@ function AgentModal({ onClose }: { onClose: () => void }) {
     );
 }
 
+// ─── Agent list ─────────────────────────────────────────
+const AGENTS = [
+    { id: 'default', name: 'MDL', icon: '🤖', description: 'あなたのAI' },
+    { id: 'lawyer', name: '弁護士', icon: '⚖️', description: '法律・契約' },
+    { id: 'accountant', name: '税理士', icon: '📊', description: '税務・会計' },
+    { id: 'engineer', name: 'エンジニア', icon: '💻', description: '開発・設計' },
+    { id: 'researcher', name: 'リサーチ', icon: '🔍', description: '調査・分析' },
+    { id: 'financial_advisor', name: 'FP', icon: '💰', description: '資産運用' },
+] as const;
+type AgentId = typeof AGENTS[number]['id'];
+
+// ─── Agent selection bar ─────────────────────────────────
+function AgentBar({ selected, onSelect }: { selected: AgentId; onSelect: (id: AgentId) => void }) {
+    return (
+        <div
+            className="flex gap-1.5 overflow-x-auto py-2 px-1 scrollbar-none"
+            style={{ scrollbarWidth: 'none' }}
+        >
+            {AGENTS.map(agent => {
+                const active = selected === agent.id;
+                return (
+                    <motion.button
+                        key={agent.id}
+                        onClick={() => onSelect(agent.id)}
+                        whileTap={{ scale: 0.94 }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-200"
+                        style={{
+                            background: active
+                                ? 'linear-gradient(135deg, rgba(216,120,152,0.25), rgba(240,168,192,0.2))'
+                                : 'var(--background-secondary)',
+                            border: `1.5px solid ${active ? 'rgba(216,120,152,0.5)' : 'var(--border)'}`,
+                            color: active ? 'var(--accent-primary)' : 'var(--foreground-muted)',
+                            boxShadow: active ? '0 2px 8px rgba(216,120,152,0.15)' : 'none',
+                        }}
+                    >
+                        <span style={{ fontSize: 14 }}>{agent.icon}</span>
+                        {agent.name}
+                    </motion.button>
+                );
+            })}
+        </div>
+    );
+}
+
 interface ChatPageProps {
     conversationId: string | null;
     onConversationCreated: (id: string) => void;
@@ -242,6 +286,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const [streaming, setStreaming] = useState(false);
     const [coreSessionId, setCoreSessionId] = useState<string | null>(null);
     const [currentConvId, setCurrentConvId] = useState<string | null>(conversationId);
+    const [selectedAgent, setSelectedAgent] = useState<AgentId>('default');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -249,6 +294,17 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const [agentModalOpen, setAgentModalOpen] = useState(false);
 
     const isEmpty = messages.length === 0;
+    const currentAgent = AGENTS.find(a => a.id === selectedAgent)!;
+
+    // エージェント切り替え時はチャットをリセット
+    function handleAgentSelect(id: AgentId) {
+        if (id === selectedAgent) return;
+        setSelectedAgent(id);
+        setMessages([]);
+        setCurrentConvId(null);
+        abortRef.current?.abort();
+        setTimeout(() => inputRef.current?.focus(), 50);
+    }
 
     // Load history when conversationId changes
     useEffect(() => {
@@ -314,6 +370,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                 message: content,
                 conversation_id: currentConvId || undefined,
                 core_session_id: coreSessionId || undefined,
+                ...(selectedAgent !== 'default' ? { role_id: selectedAgent } : {}),
             }, abort.signal);
 
             if (!res.ok || !res.body) throw new Error('Stream failed');
@@ -541,24 +598,52 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     // ─── Empty state ──────────────────────────────────────────
     if (isEmpty && !streaming) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center h-screen px-6">
-                <motion.h1
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-2xl font-medium mb-8 text-center"
-                    style={{ color: 'var(--foreground)' }}
-                >
-                    今日は何をしましょうか？
-                </motion.h1>
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.15 }}
-                    className="w-full"
-                >
-                    {inputBox}
-                </motion.div>
+            <div className="flex-1 flex flex-col h-screen">
+                {/* Agent bar */}
+                <div className="px-6 pt-3 pb-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                    <AgentBar selected={selectedAgent} onSelect={handleAgentSelect} />
+                </div>
+
+                {/* Center content */}
+                <div className="flex-1 flex flex-col items-center justify-center px-6">
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="text-4xl mb-4"
+                    >
+                        {currentAgent.icon}
+                    </motion.div>
+                    <motion.h1
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="text-2xl font-medium mb-2 text-center"
+                        style={{ color: 'var(--foreground)' }}
+                    >
+                        {selectedAgent === 'default' ? '今日は何をしましょうか？' : `${currentAgent.name}に相談する`}
+                    </motion.h1>
+                    {selectedAgent !== 'default' && (
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.4, delay: 0.1 }}
+                            className="text-sm mb-8"
+                            style={{ color: 'var(--foreground-muted)' }}
+                        >
+                            {currentAgent.description}の専門家として回答します
+                        </motion.p>
+                    )}
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: 0.15 }}
+                        className="w-full max-w-[720px]"
+                        style={selectedAgent === 'default' ? { marginTop: '2rem' } : {}}
+                    >
+                        {inputBox}
+                    </motion.div>
+                </div>
 
                 {/* Agent modal */}
                 <AnimatePresence>
@@ -571,6 +656,12 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     // ─── Chat state ───────────────────────────────────────────
     return (
         <div className="flex-1 flex flex-col h-screen">
+            {/* Agent bar + header */}
+            <div className="px-6 pt-3 pb-1 flex items-center gap-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                <span className="text-xl flex-shrink-0">{currentAgent.icon}</span>
+                <AgentBar selected={selectedAgent} onSelect={handleAgentSelect} />
+            </div>
+
             <div className="flex-1 overflow-y-auto">
                 <div className="max-w-[720px] mx-auto px-6 py-6 space-y-1">
                     <AnimatePresence>
