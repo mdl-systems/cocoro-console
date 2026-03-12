@@ -273,17 +273,19 @@ interface ChatPageProps {
 
 // ─── Emotion config ─────────────────────────────────────────
 const EMOTION_MAP: Record<string, { emoji: string; label: string; color: string }> = {
-    curious: { emoji: '🔍', label: '好奇心旺盛', color: '#06b6d4' },
-    happy: { emoji: '😊', label: '嫁しい', color: '#f59e0b' },
-    calm: { emoji: '😌', label: '穏やか', color: '#34d399' },
+    curious: { emoji: '🔍', label: '好奇心', color: '#06b6d4' },
+    happy: { emoji: '😊', label: '喜び', color: '#f59e0b' },
+    calm: { emoji: '😌', label: '平静', color: '#34d399' },
     excited: { emoji: '⚡', label: '興奮', color: '#a78bfa' },
     focused: { emoji: '🎯', label: '集中', color: '#d87898' },
     trust: { emoji: '🤝', label: '信頼', color: '#3b82f6' },
-    surprised: { emoji: '✨', label: '馨き', color: '#f472b6' },
+    surprised: { emoji: '✨', label: '驚き', color: '#f472b6' },
+    surprise: { emoji: '✨', label: '驚き', color: '#f472b6' },
     joy: { emoji: '😊', label: '喜び', color: '#f59e0b' },
     neutral: { emoji: '😐', label: 'ニュートラル', color: 'var(--foreground-muted)' },
     anxious: { emoji: '😰', label: '不安', color: '#f97316' },
-    sad: { emoji: '😢', label: '気辺り', color: '#6366f1' },
+    sad: { emoji: '😢', label: '悲しみ', color: '#6366f1' },
+    angry: { emoji: '😤', label: '怒り', color: '#ef4444' },
 };
 
 interface EmotionState {
