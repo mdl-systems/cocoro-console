@@ -420,23 +420,20 @@ export default function SetupWizard({ onComplete }: Props) {
         }
     }, [answer, rankItems, sessionId, submitting, finishSetup]);
 
-    // 前の質問へ戻る（history からローカル復元）
-    // cocoro-core が question_id を受け付けるようになったため、
-    // Back 後に Next/Skip を押すと表示中の question.id が送信され正しく処理される。
+    // 前の質問へ戻る — サーバーは一切呼ばず history からのみ復元（純クライアント動作）
     const handleBack = useCallback(() => {
-        if (isTransitioning || history.length === 0) return;
-        setIsTransitioning(true);
+        if (submitting || history.length === 0) return;
         const prev = history[history.length - 1];
         console.log('[back] restoring:', {
             question_id: prev.question.id,
             question_index: prev.question.index,
         });
         setHistory(h => h.slice(0, -1));
-        setQuestionSync(prev.question);  // ref も即時更新
+        questionRef.current = prev.question;  // ref を即時更新
+        setQuestion(prev.question);
         setAnswer(prev.answer);
         setError('');
-        setTimeout(() => setIsTransitioning(false), 100);
-    }, [history, isTransitioning]);
+    }, [history, submitting]);
 
 
     // 1問だけスキップ（空回答）— submitting フラグを冒頭で立てて連打を即ブロック
