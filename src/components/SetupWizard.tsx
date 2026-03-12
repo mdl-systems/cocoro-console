@@ -71,13 +71,15 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
     );
 }
 
-const OpenInput = ({ value, onChange, textareaRef }: {
+const OpenInput = ({ value, onChange, textareaRef, autoFocus }: {
     value: string;
     onChange: (v: string) => void;
     textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+    autoFocus?: boolean;
 }) => (
     <textarea
         ref={textareaRef}
+        autoFocus={autoFocus}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder="ここに入力してください..."
@@ -302,10 +304,11 @@ export default function SetupWizard({ onComplete }: Props) {
         setQuestion(q);
     };
 
-    // open タイプ: textarea に自動フォーカス
+    // open タイプ: textarea に自動フォーカス（autoFocus 属性と両方使用）
     useEffect(() => {
         if (question?.type === 'open') {
-            setTimeout(() => textareaRef.current?.focus(), 100);
+            const timer = setTimeout(() => textareaRef.current?.focus(), 300);
+            return () => clearTimeout(timer);
         }
     }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
     // scale タイプ: 初期値を '5' に設定（handleNext の空チェックをパスするため）
@@ -619,7 +622,7 @@ export default function SetupWizard({ onComplete }: Props) {
 
                                 {/* Input */}
                                 {question.type === 'open' && (
-                                    <OpenInput value={answer} onChange={setAnswer} textareaRef={textareaRef} />
+                                    <OpenInput value={answer} onChange={setAnswer} textareaRef={textareaRef} autoFocus={true} />
                                 )}
                                 {question.type === 'choice' && (() => {
                                     const choices = question.choices ?? question.options ?? [];
