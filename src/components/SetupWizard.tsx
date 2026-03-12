@@ -293,9 +293,14 @@ export default function SetupWizard({ onComplete }: Props) {
     const [isTransitioning, setIsTransitioning] = useState(false); // 操作中の競合防止
     const [setupResult, setSetupResult] = useState<SetupResult>({});
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    // question の最新値を同期的に参照するための ref（stale closure 対策）
+    // question の最新値を常に同期的に保持する ref
+    // setQuestion を呼ぶ全ての箇所で同時に更新する（useEffectでは遅すぎる）
     const questionRef = useRef<SetupQuestion | null>(null);
-    useEffect(() => { questionRef.current = question; }, [question]);
+    // ラッパー: state と ref を同時に更新
+    const setQuestionSync = (q: SetupQuestion | null) => {
+        questionRef.current = q;
+        setQuestion(q);
+    };
 
     // open タイプの質問に変わったら textarea にフォーカス
     useEffect(() => {
@@ -321,11 +326,11 @@ export default function SetupWizard({ onComplete }: Props) {
                 const data = await res.json();
                 if (data.success && data.question) {
                     setSessionId(data.session_id);
-                    setQuestion(data.question);
+                    setQuestionSync(data.question);
                     setPhase('question');
                 } else if (data.success && data.data) {
                     setSessionId(data.data.session_id);
-                    setQuestion(data.data.question);
+                    setQuestionSync(data.data.question);
                     setPhase('question');
                 } else {
                     throw new Error(data.error || 'Setup start failed');
@@ -393,7 +398,7 @@ export default function SetupWizard({ onComplete }: Props) {
             if (completed || (!nextQuestion && currentQuestion.index >= currentQuestion.total)) {
                 await finishSetup();
             } else if (nextQuestion) {
-                setQuestion(nextQuestion);
+                setQuestionSync(nextQuestion);
                 setAnswer('');
             } else {
                 console.warn('[setup] no nextQuestion and not completed, forcing finish');
@@ -414,7 +419,7 @@ export default function SetupWizard({ onComplete }: Props) {
         setIsTransitioning(true);
         const prev = history[history.length - 1];
         setHistory(h => h.slice(0, -1));
-        setQuestion(prev.question);
+        setQuestionSync(prev.question);  // ref も即時更新
         setAnswer(prev.answer);
         setError('');
         setTimeout(() => setIsTransitioning(false), 100);
@@ -446,7 +451,7 @@ export default function SetupWizard({ onComplete }: Props) {
             if (completed || (!nextQuestion && currentQuestion.index >= currentQuestion.total)) {
                 await finishSetup();
             } else if (nextQuestion) {
-                setQuestion(nextQuestion);
+                setQuestionSync(nextQuestion);  // ref も即時更新
                 setAnswer('');
             } else {
                 console.warn('[setup] skip: no nextQuestion, forcing finish');
