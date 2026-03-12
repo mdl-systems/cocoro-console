@@ -60,6 +60,8 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
         }
         // Cancel any in-flight stream when switching
         abortRef.current?.abort();
+        // 会話切り替え時に入力欄へフォーカス
+        setTimeout(() => inputRef.current?.focus(), 50);
     }, [conversationId]);
 
     useEffect(() => {
