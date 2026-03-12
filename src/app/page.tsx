@@ -15,6 +15,8 @@ import SecurityPage from '@/components/SecurityPage';
 import SettingsPage from '@/components/SettingsPage';
 import LockScreen from '@/components/LockScreen';
 import SetupWizard from '@/components/SetupWizard';
+import ToastContainer from '@/components/ToastContainer';
+import DailyBriefingBanner from '@/components/DailyBriefingBanner';
 
 export default function ConsolePage() {
   const [currentPage, setCurrentPage] = useState<NavPage>('chat');
@@ -197,8 +199,12 @@ export default function ConsolePage() {
         onDeleteConversation={handleDeleteConversation}
       />
       <main className="flex-1 flex flex-col overflow-hidden">
+        {currentPage === 'chat' && (
+          <DailyBriefingBanner onNavigateTasks={() => setCurrentPage('tasks')} />
+        )}
         {renderPage()}
       </main>
+      <ToastContainer onNavigateTasks={() => setCurrentPage('tasks')} />
     </div>
   );
 }
