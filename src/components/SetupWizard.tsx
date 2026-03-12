@@ -364,22 +364,26 @@ export default function SetupWizard({ onComplete }: Props) {
         }
     }, [sessionId]);
 
-    // Submit answer — questionRef.current で stale closure を回避
+    // Submit answer — submitting フラグを冒頭で立てて連打を即ブロック
     const handleNext = useCallback(async () => {
+        if (submitting) return;          // 処理中は即リターン
+        setSubmitting(true);             // 先にフラグを立てる（連打防止）
+        setError('');
+
         const currentQuestion = questionRef.current;
+        if (!currentQuestion) { setSubmitting(false); return; }
+
         // ranking タイプは rankItems をカンマ区切りで使用
-        const isRanking = currentQuestion?.type === 'ranking' || currentQuestion?.type === 'order';
+        const isRanking = currentQuestion.type === 'ranking' || currentQuestion.type === 'order';
         const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
 
-        if (!currentQuestion || !effectiveAnswer.trim() || submitting || isTransitioning) return;
-        // 回答前に履歴へ追加（重複チェック: 同じ質問が末尾にある場合はスキップ）
+        if (!effectiveAnswer.trim()) { setSubmitting(false); return; }
+
+        // 回答前に履歴へ追加（重複チェック）
         setHistory(prev => {
             if (prev[prev.length - 1]?.question.id === currentQuestion.id) return prev;
             return [...prev, { question: currentQuestion, answer: effectiveAnswer }];
         });
-
-        setSubmitting(true);
-        setError('');
 
         try {
             const res = await apiPost('/api/setup?action=answer', {
@@ -389,7 +393,7 @@ export default function SetupWizard({ onComplete }: Props) {
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            console.log('[setup] answer response:', data);
+            console.log('[setup] answer response: question_id=%s next=%s', currentQuestion.id, data.question?.id ?? data.data?.question?.id);
             if (!data.success) throw new Error(data.error || 'Answer failed');
 
             const completed = data.completed ?? data.data?.completed ?? false;
@@ -409,7 +413,7 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [answer, rankItems, sessionId, submitting, isTransitioning, finishSetup]);
+    }, [answer, rankItems, sessionId, submitting, finishSetup]);
 
     // 前の質問へ戻る（history からローカル復元）
     // cocoro-core が question_id を受け付けるようになったため、
@@ -426,17 +430,21 @@ export default function SetupWizard({ onComplete }: Props) {
     }, [history, isTransitioning]);
 
 
-    // 1問だけスキップ（空回答で次の質問へ）— questionRef.current で stale closure を回避
+    // 1問だけスキップ（空回答）— submitting フラグを冒頭で立てて連打を即ブロック
     const handleSkip = useCallback(async () => {
+        if (submitting) return;          // 処理中は即リターン
+        setSubmitting(true);             // 先にフラグを立てる（連打防止）
+        setError('');
+
         const currentQuestion = questionRef.current;
-        if (!currentQuestion || submitting || isTransitioning) return;
+        if (!currentQuestion) { setSubmitting(false); return; }
+
         // スキップ前に履歴へ追加（重複チェック）
         setHistory(prev => {
             if (prev[prev.length - 1]?.question.id === currentQuestion.id) return prev;
             return [...prev, { question: currentQuestion, answer: '' }];
         });
-        setSubmitting(true);
-        setError('');
+
         try {
             const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
@@ -445,13 +453,13 @@ export default function SetupWizard({ onComplete }: Props) {
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            console.log('[setup] skip response: question_id=%s next=%s', currentQuestion.id, data.question?.id);
+            console.log('[setup] skip response: question_id=%s next=%s', currentQuestion.id, data.question?.id ?? data.data?.question?.id);
             const completed = data.completed ?? data.data?.completed ?? false;
             const nextQuestion = data.question ?? data.data?.question;
             if (completed || (!nextQuestion && currentQuestion.index >= currentQuestion.total)) {
                 await finishSetup();
             } else if (nextQuestion) {
-                setQuestionSync(nextQuestion);  // ref も即時更新
+                setQuestionSync(nextQuestion);
                 setAnswer('');
             } else {
                 console.warn('[setup] skip: no nextQuestion, forcing finish');
@@ -463,7 +471,7 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [sessionId, submitting, isTransitioning, finishSetup]);
+    }, [sessionId, submitting, finishSetup]);
 
     // Handle Enter key for open questions
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -631,7 +639,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             {/* 戻るボタン: 1問目（履歴なし）は 視覚的に非表示（レイアウト維持） */}
                             <button
                                 onClick={handleBack}
-                                disabled={submitting || isTransitioning || history.length === 0}
+                                disabled={submitting || history.length === 0}
                                 className="px-3 py-2.5 rounded-xl text-sm transition-all duration-200"
                                 style={{
                                     color: 'var(--foreground-muted, #888)',
@@ -644,7 +652,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             </button>
                             <button
                                 onClick={handleNext}
-                                disabled={!canProceed || submitting || isTransitioning}
+                                disabled={!canProceed || submitting}
                                 className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-200 disabled:opacity-40"
                                 style={{ background: 'linear-gradient(135deg, #F0A8C0, #D87898)' }}
                             >
@@ -652,7 +660,7 @@ export default function SetupWizard({ onComplete }: Props) {
                             </button>
                             <button
                                 onClick={handleSkip}
-                                disabled={submitting || isTransitioning}
+                                disabled={submitting}
                                 className="px-3 py-2.5 rounded-xl text-xs transition-colors"
                                 style={{ color: 'var(--foreground-muted, #999)', border: '1px solid rgba(0,0,0,0.06)' }}
                             >
