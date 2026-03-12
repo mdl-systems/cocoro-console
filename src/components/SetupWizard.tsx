@@ -386,6 +386,11 @@ export default function SetupWizard({ onComplete }: Props) {
         });
 
         try {
+            console.log('[next] sending:', {
+                question_id: currentQuestion.id,
+                question_index: currentQuestion.index,
+                answer: effectiveAnswer?.slice(0, 20),
+            });
             const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
                 question_id: currentQuestion.id,
@@ -422,6 +427,10 @@ export default function SetupWizard({ onComplete }: Props) {
         if (isTransitioning || history.length === 0) return;
         setIsTransitioning(true);
         const prev = history[history.length - 1];
+        console.log('[back] restoring:', {
+            question_id: prev.question.id,
+            question_index: prev.question.index,
+        });
         setHistory(h => h.slice(0, -1));
         setQuestionSync(prev.question);  // ref も即時更新
         setAnswer(prev.answer);
@@ -446,6 +455,11 @@ export default function SetupWizard({ onComplete }: Props) {
         });
 
         try {
+            console.log('[skip] sending:', {
+                question_id: currentQuestion.id,
+                question_index: currentQuestion.index,
+                question_text: currentQuestion.text?.slice(0, 20),
+            });
             const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
                 question_id: currentQuestion.id,
