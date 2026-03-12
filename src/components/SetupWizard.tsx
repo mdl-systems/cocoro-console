@@ -302,18 +302,24 @@ export default function SetupWizard({ onComplete }: Props) {
         setQuestion(q);
     };
 
-    // open タイプの質問に変わったら textarea にフォーカス
+    // open タイプ: textarea に自動フォーカス
     useEffect(() => {
         if (question?.type === 'open') {
-            setTimeout(() => textareaRef.current?.focus(), 50);
+            setTimeout(() => textareaRef.current?.focus(), 100);
         }
     }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-    // ranking タイプ質問が変わるたびに rankItems と originalItems をリセット
+    // scale タイプ: 初期値を '5' に設定（handleNext の空チェックをパスするため）
+    useEffect(() => {
+        if (question?.type === 'scale') {
+            setAnswer('5');
+        }
+    }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    // ranking タイプ: rankItems と originalItems をリセット
     useEffect(() => {
         if (question?.type === 'ranking' || question?.type === 'order') {
             const initial = question.items ?? question.choices ?? [];
             setRankItems(initial);
-            setOriginalItems(initial); // 元の順序を固定保持
+            setOriginalItems(initial);
         }
     }, [question?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -377,7 +383,9 @@ export default function SetupWizard({ onComplete }: Props) {
         const isRanking = currentQuestion.type === 'ranking' || currentQuestion.type === 'order';
         const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
 
-        if (!effectiveAnswer.trim()) { setSubmitting(false); return; }
+        // scale / ranking は常に有効な回答を持つのでスキップ
+        const isScale = currentQuestion.type === 'scale';
+        if (!isRanking && !isScale && !effectiveAnswer.trim()) { setSubmitting(false); return; }
 
         // 回答前に履歴へ追加（重複チェック）
         setHistory(prev => {
