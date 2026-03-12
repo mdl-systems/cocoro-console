@@ -11,7 +11,7 @@ import {
     Brain,
     Shield,
     Settings,
-    Sparkles,
+    LayoutDashboard,
     PanelLeftClose,
     PanelLeftOpen,
     MessageCircle,
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import CocoroLogo from './CocoroLogo';
 
-export type NavPage = 'chat' | 'agents' | 'node' | 'nodes' | 'memory' | 'security' | 'settings';
+export type NavPage = 'chat' | 'dashboard' | 'agents' | 'node' | 'nodes' | 'memory' | 'security' | 'settings';
 
 export interface Conversation {
     id: string;
@@ -52,6 +52,7 @@ export default function Sidebar({
     const [hoveredConv, setHoveredConv] = useState<string | null>(null);
 
     const bottomNav: { id: NavPage; icon: React.ComponentType<{ size?: number }>; label: string }[] = [
+        { id: 'dashboard', icon: LayoutDashboard, label: 'ダッシュボード' },
         { id: 'agents', icon: Bot, label: 'エージェント' },
         { id: 'node', icon: Server, label: 'ノード監視' },
         { id: 'nodes', icon: Network, label: 'ノード管理' },
@@ -158,7 +159,7 @@ export default function Sidebar({
                             color: '#fff',
                         }}
                     >
-                        <Sparkles size={14} />
+                        <LayoutDashboard size={14} />
                     </div>
                 </div>
             </aside>

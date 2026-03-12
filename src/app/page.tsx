@@ -8,6 +8,7 @@ import ChatPage from '@/components/ChatPage';
 import AgentsPage from '@/components/AgentsPage';
 import NodePage from '@/components/NodePage';
 import NodesPage from '@/components/NodesPage';
+import DashboardPage from '@/components/DashboardPage';
 import MemoryPage from '@/components/MemoryPage';
 import SecurityPage from '@/components/SecurityPage';
 import SettingsPage from '@/components/SettingsPage';
@@ -166,6 +167,7 @@ export default function ConsolePage() {
           />
         );
       case 'agents': return <AgentsPage />;
+      case 'dashboard': return <DashboardPage />;
       case 'node': return <NodePage />;
       case 'nodes': return <NodesPage />;
       case 'memory': return <MemoryPage />;
