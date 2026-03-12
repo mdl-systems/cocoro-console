@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown } from 'lucide-react';
+import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown, Mic } from 'lucide-react';
 import { apiStream } from '@/lib/api-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -386,6 +386,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const [currentConvId, setCurrentConvId] = useState<string | null>(conversationId);
     const [selectedAgent, setSelectedAgent] = useState<AgentId>('default');
     const [emotion, setEmotion] = useState<EmotionState | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -408,6 +409,29 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
 
     // Initial emotion fetch
     useEffect(() => { fetchEmotion(); }, [fetchEmotion]);
+
+    // Voice input (Web Speech API)
+    function startVoiceInput() {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) { alert('このブラウザは音声入力に対応していません'); return; }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recognition = new SpeechRecognition() as any;
+        recognition.lang = 'ja-JP';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        setIsRecording(true);
+        recognition.start();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        recognition.onresult = (e: any) => {
+            const transcript = e.results[0][0].transcript as string;
+            setInput(prev => (prev ? prev + ' ' : '') + transcript);
+            setIsRecording(false);
+            setTimeout(() => inputRef.current?.focus(), 50);
+        };
+        recognition.onerror = () => setIsRecording(false);
+        recognition.onend = () => setIsRecording(false);
+    }
 
     // エージェント切り替え時はチャットをリセット
     function handleAgentSelect(id: AgentId) {
@@ -693,18 +717,35 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                         <Square size={14} fill="currentColor" />
                     </button>
                 ) : (
-                    <button
-                        onClick={sendMessage}
-                        disabled={!input.trim()}
-                        className="w-8 h-8 flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-200 disabled:opacity-30"
-                        style={{
-                            background: input.trim() ? 'var(--foreground)' : 'var(--foreground-muted)',
-                            color: 'var(--background)',
-                        }}
-                        title="送信"
-                    >
-                        <Send size={15} />
-                    </button>
+                    <>
+                        {/* Mic button */}
+                        <button
+                            onClick={startVoiceInput}
+                            disabled={streaming}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-all"
+                            style={{
+                                color: isRecording ? '#f87171' : 'var(--foreground-muted)',
+                                background: isRecording ? 'rgba(248,113,113,0.12)' : 'transparent',
+                                animation: isRecording ? 'pulse 1s infinite' : 'none',
+                            }}
+                            title="音声入力"
+                        >
+                            <Mic size={16} />
+                        </button>
+                        {/* Send button */}
+                        <button
+                            onClick={sendMessage}
+                            disabled={!input.trim()}
+                            className="w-8 h-8 flex items-center justify-center rounded-full flex-shrink-0 transition-all duration-200 disabled:opacity-30"
+                            style={{
+                                background: input.trim() ? 'var(--foreground)' : 'var(--foreground-muted)',
+                                color: 'var(--background)',
+                            }}
+                            title="送信"
+                        >
+                            <Send size={15} />
+                        </button>
+                    </>
                 )}
             </div>
             {/* Char count + hint */}

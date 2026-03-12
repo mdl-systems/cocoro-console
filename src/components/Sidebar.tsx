@@ -12,6 +12,7 @@ import {
     Shield,
     Settings,
     LayoutDashboard,
+    ClipboardList,
     PanelLeftClose,
     PanelLeftOpen,
     MessageCircle,
@@ -20,7 +21,7 @@ import {
 } from 'lucide-react';
 import CocoroLogo from './CocoroLogo';
 
-export type NavPage = 'chat' | 'dashboard' | 'agents' | 'node' | 'nodes' | 'memory' | 'security' | 'settings';
+export type NavPage = 'chat' | 'dashboard' | 'tasks' | 'agents' | 'node' | 'nodes' | 'memory' | 'security' | 'settings';
 
 export interface Conversation {
     id: string;
@@ -53,6 +54,7 @@ export default function Sidebar({
 
     const bottomNav: { id: NavPage; icon: React.ComponentType<{ size?: number }>; label: string }[] = [
         { id: 'dashboard', icon: LayoutDashboard, label: 'ダッシュボード' },
+        { id: 'tasks', icon: ClipboardList, label: 'タスク' },
         { id: 'agents', icon: Bot, label: 'エージェント' },
         { id: 'node', icon: Server, label: 'ノード監視' },
         { id: 'nodes', icon: Network, label: 'ノード管理' },
