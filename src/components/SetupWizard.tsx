@@ -575,12 +575,14 @@ export default function SetupWizard({ onComplete }: Props) {
                         {/* Header */}
                         <div className="flex items-center justify-between">
                             <CocoroLogo size={32} />
-                            <span
-                                className="text-xs px-3 py-1 rounded-full"
-                                style={{ background: 'rgba(216,120,152,0.10)', color: '#c06080' }}
-                            >
-                                {icon} {question.category_label}
-                            </span>
+                            {question.category_label && (
+                                <span
+                                    className="text-xs px-3 py-1 rounded-full"
+                                    style={{ background: 'rgba(216,120,152,0.10)', color: '#c06080' }}
+                                >
+                                    {icon} {question.category_label}
+                                </span>
+                            )}
                         </div>
 
                         {/* Progress */}

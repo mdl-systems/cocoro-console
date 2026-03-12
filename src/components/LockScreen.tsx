@@ -105,7 +105,7 @@ export default function LockScreen({ nickname, onUnlock, requirePin = false }: L
                     className="relative z-10 text-center"
                 >
                     <motion.div
-                        className="mx-auto mb-8"
+                        className="flex justify-center mb-8"
                         animate={{ scale: [1, 1.05, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
                     >
@@ -153,7 +153,7 @@ export default function LockScreen({ nickname, onUnlock, requirePin = false }: L
                 transition={{ duration: 0.4 }}
                 className="relative z-10 text-center"
             >
-                <motion.div className="mx-auto mb-6"
+                <motion.div className="flex justify-center mb-6"
                     animate={{ scale: [1, 1.04, 1] }}
                     transition={{ duration: 3, repeat: Infinity }}
                 >
