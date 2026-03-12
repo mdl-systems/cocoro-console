@@ -7,6 +7,7 @@ import {
     Search,
     Bot,
     Server,
+    Network,
     Brain,
     Shield,
     Settings,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 import CocoroLogo from './CocoroLogo';
 
-export type NavPage = 'chat' | 'agents' | 'node' | 'memory' | 'security' | 'settings';
+export type NavPage = 'chat' | 'agents' | 'node' | 'nodes' | 'memory' | 'security' | 'settings';
 
 export interface Conversation {
     id: string;
@@ -52,7 +53,8 @@ export default function Sidebar({
 
     const bottomNav: { id: NavPage; icon: React.ComponentType<{ size?: number }>; label: string }[] = [
         { id: 'agents', icon: Bot, label: 'エージェント' },
-        { id: 'node', icon: Server, label: 'ノード' },
+        { id: 'node', icon: Server, label: 'ノード監視' },
+        { id: 'nodes', icon: Network, label: 'ノード管理' },
         { id: 'memory', icon: Brain, label: 'メモリ' },
         { id: 'security', icon: Shield, label: 'セキュリティ' },
         { id: 'settings', icon: Settings, label: '設定' },

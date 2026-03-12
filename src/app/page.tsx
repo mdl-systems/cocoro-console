@@ -7,6 +7,7 @@ import Sidebar, { NavPage, Conversation } from '@/components/Sidebar';
 import ChatPage from '@/components/ChatPage';
 import AgentsPage from '@/components/AgentsPage';
 import NodePage from '@/components/NodePage';
+import NodesPage from '@/components/NodesPage';
 import MemoryPage from '@/components/MemoryPage';
 import SecurityPage from '@/components/SecurityPage';
 import SettingsPage from '@/components/SettingsPage';
@@ -166,6 +167,7 @@ export default function ConsolePage() {
         );
       case 'agents': return <AgentsPage />;
       case 'node': return <NodePage />;
+      case 'nodes': return <NodesPage />;
       case 'memory': return <MemoryPage />;
       case 'security': return <SecurityPage />;
       case 'settings': return <SettingsPage />;
