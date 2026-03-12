@@ -403,18 +403,55 @@ export default function SetupWizard({ onComplete }: Props) {
         }
     }, [question, answer, rankItems, sessionId, submitting, isTransitioning, finishSetup]);
 
-    // 前の質問へ戻る（APIは呼ばず history から復元）
-    const handleBack = useCallback(() => {
+    // 前の質問へ戻る
+    // サーバーは question_id を無視してシーケンシャルに処理するため、
+    // Back 後に Next/Skip を押すと必ずサーバーの「現在の次」へ進む。
+    // そのため、Back は「ローカル表示のみ戻す」のではなく
+    // サーバーの /setup/progress で現在の質問を取得して
+    // history から一致する問を探して表示する（= 実質サーバーと同期）。
+    const handleBack = useCallback(async () => {
         if (isTransitioning || history.length === 0) return;
         setIsTransitioning(true);
-        const prev = history[history.length - 1];
-        setHistory(h => h.slice(0, -1));
-        setQuestion(prev.question);
-        setAnswer(prev.answer);
         setError('');
-        // 次のレンダリング後に解除
-        setTimeout(() => setIsTransitioning(false), 100);
-    }, [history, isTransitioning]);
+        try {
+            // サーバーの現在位置取得
+            const res = await apiGet(`/api/setup?action=progress&session_id=${sessionId}`);
+            if (res.ok) {
+                const data = await res.json();
+                const serverQuestion = data.question ?? data.data?.question;
+                // サーバーの現在の質問から1つ前の history エントリを探す
+                // （history は「回答済み」の積み上げなので末尾から辿る）
+                if (serverQuestion) {
+                    // サーバーが既に次の質問を指している: history の末尾が前の質問
+                    const prev = history[history.length - 1];
+                    setHistory(h => h.slice(0, -1));
+                    setQuestion(prev.question);
+                    setAnswer(prev.answer);
+                } else {
+                    // progress が取れない場合はローカルのみで戻る
+                    const prev = history[history.length - 1];
+                    setHistory(h => h.slice(0, -1));
+                    setQuestion(prev.question);
+                    setAnswer(prev.answer);
+                }
+            } else {
+                // API エラー時はローカルのみで戻る
+                const prev = history[history.length - 1];
+                setHistory(h => h.slice(0, -1));
+                setQuestion(prev.question);
+                setAnswer(prev.answer);
+            }
+        } catch {
+            // ネットワークエラー時もローカルで戻る
+            const prev = history[history.length - 1];
+            setHistory(h => h.slice(0, -1));
+            setQuestion(prev.question);
+            setAnswer(prev.answer);
+        } finally {
+            setTimeout(() => setIsTransitioning(false), 100);
+        }
+    }, [history, isTransitioning, sessionId]);
+
 
     // 1問だけスキップ（空回答で次の質問へ）
     const handleSkip = useCallback(async () => {

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getDatabase } from '@/db';
 import { checkRate, jsonSuccess, jsonError } from '@/core/api-helper';
-import { setupStart, setupAnswer, setupResult, CORE_ENABLED } from '@/lib/cocoro-core';
+import { setupStart, setupAnswer, setupProgress, setupResult, CORE_ENABLED } from '@/lib/cocoro-core';
 
 const SETUP_COMPLETED_KEY = 'setup_completed';
 
@@ -39,6 +39,16 @@ export async function GET(request: NextRequest) {
             return jsonSuccess({ setup_completed: true, skipped: true });
         }
         return jsonSuccess({ setup_completed: isSetupCompleted() });
+    }
+
+    // Progress fetch — サーバーの現在の質問を取得（Back 後の同期用）
+    if (action === 'progress') {
+        const sessionId = searchParams.get('session_id');
+        if (!sessionId) return jsonError('BAD_REQUEST', 'session_id is required', 400);
+
+        const progress = await setupProgress(sessionId);
+        if (!progress) return jsonError('CORE_ERROR', 'Failed to get setup progress', 502);
+        return jsonSuccess(progress as unknown as Record<string, unknown>);
     }
 
     // Result fetch — no session required (wizard completes before session may exist)

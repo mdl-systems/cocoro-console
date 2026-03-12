@@ -526,6 +526,10 @@ export async function setupAnswer(
     })
 }
 
+export async function setupProgress(sessionId: string): Promise<{ question?: SetupQuestion; completed?: boolean } | null> {
+    return coreGet<{ question?: SetupQuestion; completed?: boolean }>(`/setup/progress/${sessionId}`)
+}
+
 export async function setupResult(sessionId: string): Promise<SetupResultResponse | null> {
     return coreGet<SetupResultResponse>(`/setup/result/${sessionId}`)
 }
