@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3 } from 'lucide-react';
+import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown } from 'lucide-react';
 import { apiStream } from '@/lib/api-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -271,6 +271,95 @@ interface ChatPageProps {
     onConversationCreated: (id: string) => void;
 }
 
+// ─── Emotion config ─────────────────────────────────────────
+const EMOTION_MAP: Record<string, { emoji: string; label: string; color: string }> = {
+    curious: { emoji: '🔍', label: '好奇心旺盛', color: '#06b6d4' },
+    happy: { emoji: '😊', label: '嫁しい', color: '#f59e0b' },
+    calm: { emoji: '😌', label: '穏やか', color: '#34d399' },
+    excited: { emoji: '⚡', label: '興奮', color: '#a78bfa' },
+    focused: { emoji: '🎯', label: '集中', color: '#d87898' },
+    trust: { emoji: '🤝', label: '信頼', color: '#3b82f6' },
+    surprised: { emoji: '✨', label: '馨き', color: '#f472b6' },
+    joy: { emoji: '😊', label: '喜び', color: '#f59e0b' },
+    neutral: { emoji: '😐', label: 'ニュートラル', color: 'var(--foreground-muted)' },
+    anxious: { emoji: '😰', label: '不安', color: '#f97316' },
+    sad: { emoji: '😢', label: '気辺り', color: '#6366f1' },
+};
+
+interface EmotionState {
+    current_emotion: string;
+    sync_rate: number;
+    valence: number;
+    arousal: number;
+    dominant_trait: string;
+}
+
+// ─── Emotion Widget ─────────────────────────────────────────
+function EmotionWidget({ emotion }: { emotion: EmotionState | null }) {
+    const [collapsed, setCollapsed] = useState(false);
+    if (!emotion) return null;
+
+    const conf = EMOTION_MAP[emotion.current_emotion.toLowerCase()] ??
+        { emoji: '🌸', label: emotion.current_emotion, color: 'var(--accent-primary)' };
+    const pct = Math.round(emotion.sync_rate * 100);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-1.5 flex-shrink-0"
+        >
+            <button
+                onClick={() => setCollapsed(c => !c)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-all"
+                style={{
+                    background: `${conf.color}14`,
+                    border: `1px solid ${conf.color}30`,
+                    color: 'var(--foreground)',
+                }}
+                title="AIの感情状態"
+            >
+                <motion.span
+                    key={conf.emoji}
+                    initial={{ scale: 0.7 }}
+                    animate={{ scale: 1 }}
+                    style={{ fontSize: 14, lineHeight: 1 }}
+                >
+                    {conf.emoji}
+                </motion.span>
+                <AnimatePresence initial={false}>
+                    {!collapsed && (
+                        <motion.span
+                            initial={{ width: 0, opacity: 0 }}
+                            animate={{ width: 'auto', opacity: 1 }}
+                            exit={{ width: 0, opacity: 0 }}
+                            className="overflow-hidden whitespace-nowrap"
+                        >
+                            <span style={{ color: conf.color }}>{conf.label}</span>
+                            <span className="ml-1.5 inline-flex items-center gap-0.5">
+                                <span className="flex gap-0.5">
+                                    {[...Array(5)].map((_, i) => (
+                                        <span key={i}
+                                            className="inline-block h-1.5 rounded-full"
+                                            style={{
+                                                width: 6,
+                                                background: i < Math.round(pct / 20) ? conf.color : `${conf.color}25`,
+                                            }}
+                                        />
+                                    ))}
+                                </span>
+                                <span className="ml-1 text-[10px] tabular-nums" style={{ color: 'var(--foreground-muted)' }}>{pct}%</span>
+                            </span>
+                        </motion.span>
+                    )}
+                </AnimatePresence>
+                <ChevronDown size={10} className={`transition-transform ${collapsed ? 'rotate-180' : ''}`}
+                    style={{ color: 'var(--foreground-muted)' }} />
+            </button>
+        </motion.div>
+    );
+}
+
 // ─── Code theme (cream) ───────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const codeTheme: any = {
@@ -294,6 +383,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const [coreSessionId, setCoreSessionId] = useState<string | null>(null);
     const [currentConvId, setCurrentConvId] = useState<string | null>(conversationId);
     const [selectedAgent, setSelectedAgent] = useState<AgentId>('default');
+    const [emotion, setEmotion] = useState<EmotionState | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -302,6 +392,20 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
 
     const isEmpty = messages.length === 0;
     const currentAgent = AGENTS.find(a => a.id === selectedAgent)!;
+
+    // Fetch emotion state
+    const fetchEmotion = useCallback(async () => {
+        try {
+            const res = await fetch('/api/node/emotion');
+            if (!res.ok) return;
+            const data = await res.json();
+            const emo = data.data?.emotion ?? data.emotion;
+            if (emo) setEmotion(emo);
+        } catch { /* ignore — core may be offline */ }
+    }, []);
+
+    // Initial emotion fetch
+    useEffect(() => { fetchEmotion(); }, [fetchEmotion]);
 
     // エージェント切り替え時はチャットをリセット
     function handleAgentSelect(id: AgentId) {
@@ -459,8 +563,10 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
             setStreaming(false);
             abortRef.current = null;
             inputRef.current?.focus();
+            // 会話後に感情状態を更新
+            fetchEmotion();
         }
-    }, [input, streaming, currentConvId, coreSessionId, onConversationCreated]);
+    }, [input, streaming, currentConvId, coreSessionId, onConversationCreated, fetchEmotion]);
 
     function stopStream() {
         abortRef.current?.abort();
@@ -618,8 +724,9 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
         return (
             <div className="flex-1 flex flex-col h-screen">
                 {/* Agent bar */}
-                <div className="px-6 pt-3 pb-1" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="px-6 pt-3 pb-1 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
                     <AgentBar selected={selectedAgent} onSelect={handleAgentSelect} />
+                    <EmotionWidget emotion={emotion} />
                 </div>
 
                 {/* Center content */}
@@ -675,9 +782,10 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     return (
         <div className="flex-1 flex flex-col h-screen">
             {/* Agent bar + header */}
-            <div className="px-6 pt-3 pb-1 flex items-center gap-3" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="px-6 pt-3 pb-1 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
                 <span className="text-xl flex-shrink-0">{currentAgent.icon}</span>
                 <AgentBar selected={selectedAgent} onSelect={handleAgentSelect} />
+                <EmotionWidget emotion={emotion} />
             </div>
 
             <div className="flex-1 overflow-y-auto">
