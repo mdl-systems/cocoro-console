@@ -293,6 +293,9 @@ export default function SetupWizard({ onComplete }: Props) {
     const [isTransitioning, setIsTransitioning] = useState(false); // 操作中の競合防止
     const [setupResult, setSetupResult] = useState<SetupResult>({});
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    // question の最新値を同期的に参照するための ref（stale closure 対策）
+    const questionRef = useRef<SetupQuestion | null>(null);
+    useEffect(() => { questionRef.current = question; }, [question]);
 
     // open タイプの質問に変わったら textarea にフォーカス
     useEffect(() => {
@@ -356,17 +359,18 @@ export default function SetupWizard({ onComplete }: Props) {
         }
     }, [sessionId]);
 
-    // Submit answer
+    // Submit answer — questionRef.current で stale closure を回避
     const handleNext = useCallback(async () => {
+        const currentQuestion = questionRef.current;
         // ranking タイプは rankItems をカンマ区切りで使用
-        const isRanking = question?.type === 'ranking' || question?.type === 'order';
+        const isRanking = currentQuestion?.type === 'ranking' || currentQuestion?.type === 'order';
         const effectiveAnswer = isRanking ? rankItems.join(',') : answer;
 
-        if (!question || !effectiveAnswer.trim() || submitting || isTransitioning) return;
+        if (!currentQuestion || !effectiveAnswer.trim() || submitting || isTransitioning) return;
         // 回答前に履歴へ追加（重複チェック: 同じ質問が末尾にある場合はスキップ）
         setHistory(prev => {
-            if (prev[prev.length - 1]?.question.id === question!.id) return prev;
-            return [...prev, { question: question!, answer: effectiveAnswer }];
+            if (prev[prev.length - 1]?.question.id === currentQuestion.id) return prev;
+            return [...prev, { question: currentQuestion, answer: effectiveAnswer }];
         });
 
         setSubmitting(true);
@@ -375,7 +379,7 @@ export default function SetupWizard({ onComplete }: Props) {
         try {
             const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
-                question_id: question.id,
+                question_id: currentQuestion.id,
                 answer: effectiveAnswer.trim(),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -386,13 +390,12 @@ export default function SetupWizard({ onComplete }: Props) {
             const completed = data.completed ?? data.data?.completed ?? false;
             const nextQuestion = data.question ?? data.data?.question;
 
-            if (completed || (!nextQuestion && question.index >= question.total)) {
+            if (completed || (!nextQuestion && currentQuestion.index >= currentQuestion.total)) {
                 await finishSetup();
             } else if (nextQuestion) {
                 setQuestion(nextQuestion);
                 setAnswer('');
             } else {
-                // nextQuestion もないが completed でもない（念のため finishSetup）
                 console.warn('[setup] no nextQuestion and not completed, forcing finish');
                 await finishSetup();
             }
@@ -401,7 +404,7 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [question, answer, rankItems, sessionId, submitting, isTransitioning, finishSetup]);
+    }, [answer, rankItems, sessionId, submitting, isTransitioning, finishSetup]);
 
     // 前の質問へ戻る（history からローカル復元）
     // cocoro-core が question_id を受け付けるようになったため、
@@ -418,28 +421,29 @@ export default function SetupWizard({ onComplete }: Props) {
     }, [history, isTransitioning]);
 
 
-    // 1問だけスキップ（空回答で次の質問へ）
+    // 1問だけスキップ（空回答で次の質問へ）— questionRef.current で stale closure を回避
     const handleSkip = useCallback(async () => {
-        if (!question || submitting || isTransitioning) return;
+        const currentQuestion = questionRef.current;
+        if (!currentQuestion || submitting || isTransitioning) return;
         // スキップ前に履歴へ追加（重複チェック）
         setHistory(prev => {
-            if (prev[prev.length - 1]?.question.id === question.id) return prev;
-            return [...prev, { question, answer: '' }];
+            if (prev[prev.length - 1]?.question.id === currentQuestion.id) return prev;
+            return [...prev, { question: currentQuestion, answer: '' }];
         });
         setSubmitting(true);
         setError('');
         try {
             const res = await apiPost('/api/setup?action=answer', {
                 session_id: sessionId,
-                question_id: question.id,
+                question_id: currentQuestion.id,
                 answer: '',
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            console.log('[setup] skip response:', data);
+            console.log('[setup] skip response: question_id=%s next=%s', currentQuestion.id, data.question?.id);
             const completed = data.completed ?? data.data?.completed ?? false;
             const nextQuestion = data.question ?? data.data?.question;
-            if (completed || (!nextQuestion && question.index >= question.total)) {
+            if (completed || (!nextQuestion && currentQuestion.index >= currentQuestion.total)) {
                 await finishSetup();
             } else if (nextQuestion) {
                 setQuestion(nextQuestion);
@@ -454,7 +458,7 @@ export default function SetupWizard({ onComplete }: Props) {
         } finally {
             setSubmitting(false);
         }
-    }, [question, sessionId, submitting, isTransitioning, finishSetup]);
+    }, [sessionId, submitting, isTransitioning, finishSetup]);
 
     // Handle Enter key for open questions
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
