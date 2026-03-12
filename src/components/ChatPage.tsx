@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Plus, Square } from 'lucide-react';
+import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3 } from 'lucide-react';
 import { apiStream } from '@/lib/api-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -14,6 +14,205 @@ interface Message {
     content: string;
     timestamp: string;
     streaming?: boolean;
+}
+
+// ─── Agent types ──────────────────────────────────────────
+const AGENT_TYPES = [
+    { id: 'research', emoji: '🔍', label: 'リサーチ', desc: 'Web検索・情報収集', color: '#06b6d4', Icon: Search },
+    { id: 'write', emoji: '📝', label: 'ライティング', desc: '文章作成・編集', color: '#f472b6', Icon: PenLine },
+    { id: 'code', emoji: '💻', label: 'コーディング', desc: 'コード生成・レビュー', color: '#34d399', Icon: Code2 },
+    { id: 'analyze', emoji: '📊', label: '分析', desc: 'データ分析・レポート', color: '#f59e0b', Icon: BarChart3 },
+] as const;
+type AgentTypeId = typeof AGENT_TYPES[number]['id'];
+
+// ─── Agent Modal ──────────────────────────────────────────
+function AgentModal({ onClose }: { onClose: () => void }) {
+    const [selectedType, setSelectedType] = useState<AgentTypeId>('research');
+    const [task, setTask] = useState('');
+    const [phase, setPhase] = useState<'select' | 'running' | 'done' | 'error'>('select');
+    const [progress, setProgress] = useState(0);
+    const [step, setStep] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
+    const type = AGENT_TYPES.find(t => t.id === selectedType)!;
+
+    async function handleRun() {
+        if (!task.trim()) return;
+        setPhase('running');
+        setProgress(10);
+        setStep('タスクをキューに投入中...');
+
+        try {
+            const res = await fetch('/api/agent-proxy?path=/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: task.trim(), type: selectedType }),
+            });
+            const data = await res.json();
+
+            if (!data.success && !data.task_id && !data.data?.task_id) {
+                throw new Error(data.error || '投入失敗');
+            }
+
+            // Simulate progress (real polling would use /tasks/:id)
+            setProgress(40); setStep('エージェントがタスクを受信しました...');
+            await new Promise(r => setTimeout(r, 800));
+            setProgress(70); setStep('処理中...');
+            await new Promise(r => setTimeout(r, 800));
+            setProgress(100); setStep('完了');
+            setPhase('done');
+        } catch (e) {
+            setErrorMsg((e as Error).message);
+            setPhase('error');
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 24 }}
+                className="w-full max-w-md rounded-2xl p-6"
+                style={{ background: 'var(--background-secondary)', border: '1px solid var(--border)' }}>
+
+                {/* Header */}
+                <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
+                        <Bot size={16} style={{ color: 'var(--accent-primary)' }} />
+                        エージェントに依頼
+                    </h3>
+                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/[0.06] transition-colors">
+                        <X size={16} style={{ color: 'var(--foreground-muted)' }} />
+                    </button>
+                </div>
+
+                {/* select phase */}
+                {phase === 'select' && (
+                    <>
+                        {/* Agent type */}
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                            {AGENT_TYPES.map(t => (
+                                <button key={t.id}
+                                    onClick={() => setSelectedType(t.id)}
+                                    className="flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all"
+                                    style={{
+                                        background: selectedType === t.id ? `${t.color}18` : 'var(--background-tertiary)',
+                                        border: `1.5px solid ${selectedType === t.id ? t.color : 'var(--border)'}`,
+                                        color: selectedType === t.id ? t.color : 'var(--foreground-muted)',
+                                    }}>
+                                    <t.Icon size={16} />
+                                    <div>
+                                        <div className="text-xs font-semibold" style={{ color: selectedType === t.id ? t.color : 'var(--foreground)' }}>
+                                            {t.emoji} {t.label}
+                                        </div>
+                                        <div className="text-[10px] mt-0.5">{t.desc}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Task input */}
+                        <div className="mb-4">
+                            <label className="text-[11px] mb-1 block" style={{ color: 'var(--foreground-muted)' }}>
+                                タスクの指示 *
+                            </label>
+                            <textarea
+                                value={task}
+                                onChange={e => setTask(e.target.value)}
+                                rows={3}
+                                placeholder={`例: ${selectedType === 'research' ? 'AIのトレンドを調査してまとめて' :
+                                    selectedType === 'write' ? 'ブログ記事のアウトラインを作成して' :
+                                        selectedType === 'code' ? 'TypeScriptでHTTPクライアントを実装して' :
+                                            'ユーザーデータをもとにレポートを作成して'
+                                    }`}
+                                autoFocus
+                                className="w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none transition-all"
+                                style={{
+                                    background: 'var(--background-tertiary)',
+                                    border: `1.5px solid ${task.trim() ? type.color : 'var(--border)'}`,
+                                    color: 'var(--foreground)',
+                                }}
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button onClick={onClose}
+                                className="flex-1 py-2.5 rounded-xl text-sm transition-colors"
+                                style={{ border: '1px solid var(--border)', color: 'var(--foreground-muted)' }}>
+                                キャンセル
+                            </button>
+                            <button onClick={handleRun} disabled={!task.trim()}
+                                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-40"
+                                style={{ background: `linear-gradient(135deg, ${type.color}, ${type.color}cc)` }}>
+                                実行
+                            </button>
+                        </div>
+                    </>
+                )}
+
+                {/* running phase */}
+                {phase === 'running' && (
+                    <div className="py-4 space-y-4">
+                        <div className="flex items-center gap-3 text-sm" style={{ color: 'var(--foreground)' }}>
+                            <Loader2 size={16} className="animate-spin" style={{ color: type.color }} />
+                            {step}
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{ background: 'var(--background-tertiary)' }}>
+                            <motion.div
+                                className="h-full rounded-full"
+                                style={{ background: type.color }}
+                                animate={{ width: `${progress}%` }}
+                                transition={{ duration: 0.6, ease: 'easeOut' }}
+                            />
+                        </div>
+                        <p className="text-[11px] text-center" style={{ color: 'var(--foreground-muted)' }}>
+                            {type.emoji} {type.label} エージェントが処理中です
+                        </p>
+                    </div>
+                )}
+
+                {/* done phase */}
+                {phase === 'done' && (
+                    <div className="py-4 space-y-4 text-center">
+                        <CheckCircle2 size={40} className="mx-auto" style={{ color: '#34d399' }} />
+                        <div>
+                            <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>タスクを投入しました</p>
+                            <p className="text-[11px] mt-1" style={{ color: 'var(--foreground-muted)' }}>
+                                エージェント画面から進捗を確認できます
+                            </p>
+                        </div>
+                        <button onClick={onClose}
+                            className="px-6 py-2 rounded-xl text-sm font-medium"
+                            style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                            閉じる
+                        </button>
+                    </div>
+                )}
+
+                {/* error phase */}
+                {phase === 'error' && (
+                    <div className="py-4 space-y-4 text-center">
+                        <p className="text-sm" style={{ color: '#f87171' }}>エラーが発生しました</p>
+                        <p className="text-[11px]" style={{ color: 'var(--foreground-muted)' }}>{errorMsg}</p>
+                        <div className="flex gap-3">
+                            <button onClick={() => { setPhase('select'); setErrorMsg(''); }}
+                                className="flex-1 py-2 rounded-xl text-sm transition-colors"
+                                style={{ border: '1px solid var(--border)', color: 'var(--foreground-muted)' }}>
+                                戻る
+                            </button>
+                            <button onClick={onClose}
+                                className="flex-1 py-2 rounded-xl text-sm"
+                                style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)' }}>
+                                閉じる
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </motion.div>
+        </div>
+    );
 }
 
 interface ChatPageProps {
@@ -47,6 +246,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
     const pendingConvNotify = useRef<string | null>(null);
+    const [agentModalOpen, setAgentModalOpen] = useState(false);
 
     const isEmpty = messages.length === 0;
 
@@ -292,6 +492,14 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                 >
                     <Plus size={18} />
                 </button>
+                <button
+                    onClick={() => setAgentModalOpen(true)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-all hover:bg-[rgba(216,120,152,0.1)]"
+                    style={{ color: agentModalOpen ? 'var(--accent-primary)' : 'var(--foreground-muted)' }}
+                    title="エージェントに依頼"
+                >
+                    <Bot size={17} />
+                </button>
                 <textarea
                     ref={inputRef}
                     value={input}
@@ -351,6 +559,11 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                 >
                     {inputBox}
                 </motion.div>
+
+                {/* Agent modal */}
+                <AnimatePresence>
+                    {agentModalOpen && <AgentModal onClose={() => setAgentModalOpen(false)} />}
+                </AnimatePresence>
             </div>
         );
     }
@@ -429,6 +642,11 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                     Cocoroは間違えることがあります。重要な情報は確認してください。
                 </p>
             </div>
+
+            {/* Agent modal */}
+            <AnimatePresence>
+                {agentModalOpen && <AgentModal onClose={() => setAgentModalOpen(false)} />}
+            </AnimatePresence>
         </div>
     );
 }
