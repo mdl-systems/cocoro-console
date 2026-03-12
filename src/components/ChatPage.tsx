@@ -217,12 +217,12 @@ function AgentModal({ onClose }: { onClose: () => void }) {
 
 // ─── Agent list ─────────────────────────────────────────
 const AGENTS = [
-    { id: 'default', name: 'MDL', icon: '🤖', description: 'あなたのAI' },
-    { id: 'lawyer', name: '弁護士', icon: '⚖️', description: '法律・契約' },
-    { id: 'accountant', name: '税理士', icon: '📊', description: '税務・会計' },
-    { id: 'engineer', name: 'エンジニア', icon: '💻', description: '開発・設計' },
-    { id: 'researcher', name: 'リサーチ', icon: '🔍', description: '調査・分析' },
-    { id: 'financial_advisor', name: 'FP', icon: '💰', description: '資産運用' },
+    { id: 'default', name: 'MDL', icon: '🤖', description: 'あなたのAI', color: '#d87898' },
+    { id: 'lawyer', name: '弁護士', icon: '⚖️', description: '法律・契約', color: '#4a7ab5' },
+    { id: 'accountant', name: '税理士', icon: '📊', description: '税務・会計', color: '#3a9a6a' },
+    { id: 'engineer', name: 'エンジニア', icon: '💻', description: '開発・設計', color: '#4a6ab5' },
+    { id: 'researcher', name: 'リサーチ', icon: '🔍', description: '調査・分析', color: '#c4782a' },
+    { id: 'financial_advisor', name: 'FP', icon: '💰', description: '資産運用', color: '#c4a42a' },
 ] as const;
 type AgentId = typeof AGENTS[number]['id'];
 
@@ -230,27 +230,34 @@ type AgentId = typeof AGENTS[number]['id'];
 function AgentBar({ selected, onSelect }: { selected: AgentId; onSelect: (id: AgentId) => void }) {
     return (
         <div
-            className="flex gap-1.5 overflow-x-auto py-2 px-1 scrollbar-none"
+            className="flex gap-2 overflow-x-auto py-2 px-1 scrollbar-none"
             style={{ scrollbarWidth: 'none' }}
         >
             {AGENTS.map(agent => {
                 const active = selected === agent.id;
+                const c = agent.color;
                 return (
                     <motion.button
                         key={agent.id}
                         onClick={() => onSelect(agent.id)}
-                        whileTap={{ scale: 0.94 }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-200"
+                        whileTap={{ scale: 0.92 }}
+                        layout
+                        className="flex items-center gap-2 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-250"
                         style={{
-                            background: active
-                                ? 'linear-gradient(135deg, rgba(216,120,152,0.25), rgba(240,168,192,0.2))'
-                                : 'var(--background-secondary)',
-                            border: `1.5px solid ${active ? 'rgba(216,120,152,0.5)' : 'var(--border)'}`,
-                            color: active ? 'var(--accent-primary)' : 'var(--foreground-muted)',
-                            boxShadow: active ? '0 2px 8px rgba(216,120,152,0.15)' : 'none',
+                            padding: active ? '6px 14px 6px 10px' : '6px 12px',
+                            background: active ? `${c}20` : 'var(--background-secondary)',
+                            border: `1.5px solid ${active ? c : 'var(--border)'}`,
+                            color: active ? c : 'var(--foreground-muted)',
+                            boxShadow: active ? `0 2px 10px ${c}30` : 'none',
                         }}
                     >
-                        <span style={{ fontSize: 14 }}>{agent.icon}</span>
+                        <motion.span
+                            animate={{ fontSize: active ? 16 : 13 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ lineHeight: 1, display: 'block' }}
+                        >
+                            {agent.icon}
+                        </motion.span>
                         {agent.name}
                     </motion.button>
                 );
@@ -562,7 +569,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="質問してみましょう"
+                    placeholder={selectedAgent === 'default' ? '質問してみましょう' : `${currentAgent.name}エージェントに質問する...`}
                     rows={1}
                     className="flex-1 bg-transparent py-1.5 px-1 text-sm outline-none resize-none leading-relaxed"
                     style={{ color: 'var(--foreground)', maxHeight: 200 }}
@@ -590,6 +597,17 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                     >
                         <Send size={15} />
                     </button>
+                )}
+            </div>
+            {/* Char count + hint */}
+            <div className="flex items-center justify-between mt-1 px-1">
+                <p className="text-[10px]" style={{ color: 'var(--foreground-muted)', opacity: 0.35 }}>
+                    Cocoroは間違えることがあります。重要な情報は確認してください。
+                </p>
+                {input.length > 0 && (
+                    <span className="text-[10px] tabular-nums" style={{ color: input.length > 1800 ? '#f87171' : 'var(--foreground-muted)', opacity: 0.5 }}>
+                        {input.length}/2000
+                    </span>
                 )}
             </div>
         </div>
@@ -671,55 +689,76 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.2 }}
-                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-1`}
+                                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-3`}
                             >
                                 {msg.role === 'assistant' ? (
-                                    // ── AI: 左側・プレーンテキスト ──────────────
-                                    <div className="max-w-[85%] text-sm leading-relaxed prose-cocoro py-1"
-                                        style={{ color: 'var(--foreground)' }}
-                                    >
-                                        {msg.content ? (
-                                            <>
-                                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                                                    {msg.content}
-                                                </ReactMarkdown>
-                                                {msg.streaming && (
-                                                    <span
-                                                        className="inline-block w-0.5 h-4 ml-0.5 align-text-bottom animate-pulse"
-                                                        style={{ background: 'var(--accent-primary)' }}
-                                                    />
+                                    // ── AI: 左側・アイコン付き ──────────────
+                                    <div className="flex items-start gap-2.5 max-w-[85%]">
+                                        <div
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 text-base"
+                                            style={{ background: `${currentAgent.color}18`, border: `1px solid ${currentAgent.color}30` }}
+                                            title={currentAgent.name}
+                                        >
+                                            {currentAgent.icon}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm leading-relaxed prose-cocoro py-1"
+                                                style={{ color: 'var(--foreground)' }}
+                                            >
+                                                {msg.content ? (
+                                                    <>
+                                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                                                            {msg.content}
+                                                        </ReactMarkdown>
+                                                        {msg.streaming && (
+                                                            <span
+                                                                className="inline-block w-0.5 h-4 ml-0.5 align-text-bottom animate-pulse"
+                                                                style={{ background: currentAgent.color }}
+                                                            />
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <div className="flex gap-1 py-2">
+                                                        {[0, 1, 2].map(i => (
+                                                            <motion.div
+                                                                key={i}
+                                                                className="w-1.5 h-1.5 rounded-full"
+                                                                style={{ background: currentAgent.color }}
+                                                                animate={{ opacity: [0.3, 1, 0.3] }}
+                                                                transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+                                                            />
+                                                        ))}
+                                                    </div>
                                                 )}
-                                            </>
-                                        ) : (
-                                            // タイピングドット
-                                            <div className="flex gap-1 py-2">
-                                                {[0, 1, 2].map(i => (
-                                                    <motion.div
-                                                        key={i}
-                                                        className="w-1.5 h-1.5 rounded-full"
-                                                        style={{ background: 'var(--foreground-muted)' }}
-                                                        animate={{ opacity: [0.3, 1, 0.3] }}
-                                                        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
-                                                    />
-                                                ))}
                                             </div>
-                                        )}
+                                            {!msg.streaming && msg.content && (
+                                                <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)', opacity: 0.45 }}>
+                                                    {new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 ) : (
-                                    // ── USER: 右側・バブル ───────────────────
-                                    <div
-                                        className="max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
-                                        style={{
-                                            background: 'var(--background-secondary)',
-                                            color: 'var(--foreground)',
-                                            border: '1px solid var(--border)',
-                                            borderBottomRightRadius: '6px',
-                                        }}
-                                    >
-                                        {msg.content}
+                                    // ── USER: 右側・テーマカラーバブル ──────────
+                                    <div className="flex flex-col items-end gap-1">
+                                        <div
+                                            className="max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
+                                            style={{
+                                                background: `${currentAgent.color}18`,
+                                                color: 'var(--foreground)',
+                                                border: `1px solid ${currentAgent.color}28`,
+                                                borderBottomRightRadius: '6px',
+                                            }}
+                                        >
+                                            {msg.content}
+                                        </div>
+                                        <div className="text-[10px] pr-1" style={{ color: 'var(--foreground-muted)', opacity: 0.45 }}>
+                                            {new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
                                     </div>
-                                )}
+                                )}\r
                             </motion.div>
+
                         ))}
                     </AnimatePresence>
                     <div ref={messagesEndRef} />
