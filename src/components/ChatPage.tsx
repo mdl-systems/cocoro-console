@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown, Mic } from 'lucide-react';
+import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown, Mic, Copy, Check } from 'lucide-react';
 import { apiStream } from '@/lib/api-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -359,6 +359,27 @@ function EmotionWidget({ emotion }: { emotion: EmotionState | null }) {
                     style={{ color: 'var(--foreground-muted)' }} />
             </button>
         </motion.div>
+    );
+}
+
+// ─── Copy Button ─────────────────────────────────────────────
+function CopyButton({ content }: { content: string }) {
+    const [copied, setCopied] = useState(false);
+    function copy() {
+        navigator.clipboard.writeText(content).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        }).catch(() => { /* no clipboard access */ });
+    }
+    return (
+        <button
+            onClick={copy}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-white/[0.06]"
+            title="コピー"
+            style={{ color: copied ? '#34d399' : 'var(--foreground-muted)' }}
+        >
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+        </button>
     );
 }
 
@@ -883,8 +904,11 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                                                 )}
                                             </div>
                                             {!msg.streaming && msg.content && (
-                                                <div className="text-[10px] mt-0.5" style={{ color: 'var(--foreground-muted)', opacity: 0.45 }}>
-                                                    {new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className="text-[10px]" style={{ color: 'var(--foreground-muted)', opacity: 0.45 }}>
+                                                        {new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    <CopyButton content={msg.content} />
                                                 </div>
                                             )}
                                         </div>

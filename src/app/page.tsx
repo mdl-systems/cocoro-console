@@ -17,6 +17,7 @@ import LockScreen from '@/components/LockScreen';
 import SetupWizard from '@/components/SetupWizard';
 import ToastContainer from '@/components/ToastContainer';
 import DailyBriefingBanner from '@/components/DailyBriefingBanner';
+import SplashScreen from '@/components/SplashScreen';
 
 export default function ConsolePage() {
   const [currentPage, setCurrentPage] = useState<NavPage>('chat');
@@ -24,6 +25,7 @@ export default function ConsolePage() {
   const [locked, setLocked] = useState(false);
   const [pinRequired, setPinRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [splashDone, setSplashDone] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
 
   // Conversation state
@@ -141,13 +143,29 @@ export default function ConsolePage() {
     } catch { /* ignore */ }
   }, [activeConversationId]);
 
-  // ── Loading screen ─────────────────────────────────────────
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === 'k') { e.preventDefault(); handleNewChat(); }
+      // Cmd+/ reserved for future command palette
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  // ── Splash screen ─────────────────────────────────────────
+  // Show skeleton logo while data loads, then SplashScreen animation
   if (loading || setupCompleted === null) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ background: 'var(--background)' }}>
         <CocoroLogo size={48} glow />
       </div>
     );
+  }
+
+  if (!splashDone) {
+    return <SplashScreen onComplete={() => setSplashDone(true)} />;
   }
 
   // ── Boot Wizard (first launch) ─────────────────────────────
