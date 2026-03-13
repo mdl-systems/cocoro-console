@@ -18,6 +18,7 @@ import SetupWizard from '@/components/SetupWizard';
 import ToastContainer from '@/components/ToastContainer';
 import DailyBriefingBanner from '@/components/DailyBriefingBanner';
 import SplashScreen from '@/components/SplashScreen';
+import CommandPalette from '@/components/CommandPalette';
 
 export default function ConsolePage() {
   const [currentPage, setCurrentPage] = useState<NavPage>('chat');
@@ -27,6 +28,7 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(true);
   const [splashDone, setSplashDone] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
 
   // Conversation state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -147,8 +149,8 @@ export default function ConsolePage() {
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key === 'k') { e.preventDefault(); handleNewChat(); }
-      // Cmd+/ reserved for future command palette
+      if (mod && e.key === 'k') { e.preventDefault(); setCmdPaletteOpen(o => !o); }
+      if (e.key === 'Escape') { setCmdPaletteOpen(false); }
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
@@ -223,6 +225,12 @@ export default function ConsolePage() {
         {renderPage()}
       </main>
       <ToastContainer onNavigateTasks={() => setCurrentPage('tasks')} />
+      <CommandPalette
+        open={cmdPaletteOpen}
+        onClose={() => setCmdPaletteOpen(false)}
+        onNewChat={handleNewChat}
+        onNavigate={(page) => setCurrentPage(page as NavPage)}
+      />
     </div>
   );
 }
