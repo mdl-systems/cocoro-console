@@ -4,8 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Activity, RefreshCw, MessageCircle, Shield, TrendingUp,
-    CheckCircle2, XCircle, Loader2, Clock, BarChart3, AlertTriangle,
+    CheckCircle2, XCircle, Loader2, Clock, BarChart3, AlertTriangle, Link2,
 } from 'lucide-react';
+import {
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer,
+} from 'recharts';
+import SyncWidget, { getSyncColor } from './SyncWidget';
 
 // ─── 型 ──────────────────────────────────────────────────────
 interface ServiceStatus {
@@ -143,6 +148,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [syncHistory, setSyncHistory] = useState<Array<{ date: string; value: number }>>([]);
 
     const fetchAll = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -166,6 +172,15 @@ export default function DashboardPage() {
                 setTotalMsgs(d.totalMessages ?? 0);
             }
             setLastUpdated(new Date());
+
+            // Sync rate history
+            try {
+                const syncRes = await fetch('/api/sync/state?mode=history');
+                if (syncRes.ok) {
+                    const syncData = await syncRes.json();
+                    setSyncHistory(syncData.data?.history ?? syncData.history ?? []);
+                }
+            } catch { /* ignore */ }
         } catch { /* ignore */ } finally {
             setLoading(false);
             setRefreshing(false);
@@ -220,6 +235,59 @@ export default function DashboardPage() {
                     {services.map((svc, i) => (
                         <ServiceCard key={svc.id} svc={svc} index={i} />
                     ))}
+                </div>
+
+                {/* ── Sync Rate row ─────────────────────────── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Full sync widget card */}
+                    <SyncWidget />
+
+                    {/* 30-day chart */}
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.05 }} className="glass-panel p-5">
+                        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"
+                            style={{ color: 'var(--foreground)' }}>
+                            <Link2 size={14} style={{ color: 'var(--accent-primary)' }} />
+                            シンクロ率 推移（30日）
+                        </h3>
+                        {syncHistory.length > 0 ? (
+                            <ResponsiveContainer width="100%" height={140}>
+                                <AreaChart data={syncHistory}
+                                    margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="syncGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={getSyncColor(syncHistory[syncHistory.length - 1]?.value ?? 0.7)} stopOpacity={0.35} />
+                                            <stop offset="95%" stopColor={getSyncColor(syncHistory[syncHistory.length - 1]?.value ?? 0.7)} stopOpacity={0.02} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                                    <XAxis dataKey="date"
+                                        tick={{ fontSize: 9, fill: 'var(--foreground-muted)' }}
+                                        tickFormatter={d => d.slice(5)}
+                                        interval={Math.floor(syncHistory.length / 5)}
+                                    />
+                                    <YAxis domain={[0, 1]}
+                                        tick={{ fontSize: 9, fill: 'var(--foreground-muted)' }}
+                                        tickFormatter={v => `${Math.round(v * 100)}%`}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ background: 'var(--background-secondary)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }}
+                                        formatter={(v) => [`${Math.round((Number(v) || 0) * 100)}%`, 'シンクロ率']}
+                                        labelFormatter={l => `📅 ${l}`}
+                                    />
+                                    <Area type="monotone" dataKey="value"
+                                        stroke={getSyncColor(syncHistory[syncHistory.length - 1]?.value ?? 0.7)}
+                                        strokeWidth={2}
+                                        fill="url(#syncGrad)"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-[140px]">
+                                <p className="text-xs" style={{ color: 'var(--foreground-muted)' }}>データなし</p>
+                            </div>
+                        )}
+                    </motion.div>
                 </div>
 
                 {/* ── Summary numbers ───────────────────────────── */}
