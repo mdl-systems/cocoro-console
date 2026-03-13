@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiPost, apiDelete } from '@/lib/api-client';
 import CocoroLogo from '@/components/CocoroLogo';
-import Sidebar, { NavPage, Conversation } from '@/components/Sidebar';
+import Sidebar, { NavPage, Conversation, MobileMenuButton } from '@/components/Sidebar';
 import ChatPage from '@/components/ChatPage';
 import AgentsPage from '@/components/AgentsPage';
 import NodePage from '@/components/NodePage';
@@ -29,6 +29,7 @@ export default function ConsolePage() {
   const [splashDone, setSplashDone] = useState(false);
   const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Conversation state
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -209,6 +210,13 @@ export default function ConsolePage() {
 
   return (
     <div className="flex h-screen" style={{ background: 'var(--background)' }}>
+      {/* Mobile top bar */}
+      <div className="md:hidden fixed top-0 inset-x-0 z-30 flex items-center gap-3 px-4 py-2.5"
+        style={{ background: 'var(--background-secondary)', borderBottom: '1px solid var(--border)' }}>
+        <MobileMenuButton onClick={() => setMobileMenuOpen(true)} />
+        <CocoroLogo size={22} />
+        <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Cocoro</span>
+      </div>
       <Sidebar
         currentPage={currentPage}
         onNavigate={setCurrentPage}
@@ -217,8 +225,10 @@ export default function ConsolePage() {
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
         onDeleteConversation={handleDeleteConversation}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden md:pt-0 pt-14">
         {currentPage === 'chat' && (
           <DailyBriefingBanner onNavigateTasks={() => setCurrentPage('tasks')} />
         )}
