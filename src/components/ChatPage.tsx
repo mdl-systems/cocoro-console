@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown, Mic, Copy, Check } from 'lucide-react';
+import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Code2, BarChart3, ChevronDown, Mic, Copy, Check, FileText, Paperclip, ChevronRight } from 'lucide-react';
 import { apiStream } from '@/lib/api-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -14,6 +14,23 @@ interface Message {
     content: string;
     timestamp: string;
     streaming?: boolean;
+    attachedFileName?: string;
+}
+
+interface FileAttachment {
+    file: File;
+    name: string;
+    size: number;
+    ext: string;
+}
+
+const ACCEPTED_TYPES = '.pdf,.txt,.md,.csv,.json';
+const ACCEPTED_MIME = ['application/pdf', 'text/plain', 'text/markdown', 'text/csv', 'application/json'];
+
+function fmtSize(bytes: number) {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
 // ─── Agent types ──────────────────────────────────────────
@@ -383,6 +400,46 @@ function CopyButton({ content }: { content: string }) {
     );
 }
 
+// ─── Expandable Content (long AI responses) ───────────────────
+const COLLAPSE_LIMIT = 600;
+function ExpandableContent({
+    content,
+    isLong,
+    streaming,
+    cursorColor,
+    markdownComponents,
+}: {
+    content: string;
+    isLong: boolean;
+    streaming: boolean;
+    cursorColor: string;
+    markdownComponents: object;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const displayContent = isLong && !expanded ? content.slice(0, COLLAPSE_LIMIT) + '…' : content;
+    return (
+        <>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents as Parameters<typeof ReactMarkdown>[0]['components']}>
+                {displayContent}
+            </ReactMarkdown>
+            {streaming && (
+                <span className="inline-block w-0.5 h-4 ml-0.5 align-text-bottom animate-pulse"
+                    style={{ background: cursorColor }} />
+            )}
+            {isLong && !streaming && (
+                <button
+                    onClick={() => setExpanded(e => !e)}
+                    className="mt-2 flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
+                    style={{ color: 'var(--accent-primary)' }}
+                >
+                    {expanded ? '折りたたむ' : '全文を見る'}
+                    <ChevronRight size={12} className={`transition-transform ${expanded ? 'rotate-90' : ''}`} />
+                </button>
+            )}
+        </>
+    );
+}
+
 // ─── Code theme (cream) ───────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const codeTheme: any = {
@@ -413,6 +470,9 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     const abortRef = useRef<AbortController | null>(null);
     const pendingConvNotify = useRef<string | null>(null);
     const [agentModalOpen, setAgentModalOpen] = useState(false);
+    const [attachedFile, setAttachedFile] = useState<FileAttachment | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const isEmpty = messages.length === 0;
     const currentAgent = AGENTS.find(a => a.id === selectedAgent)!;
@@ -430,6 +490,25 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
 
     // Initial emotion fetch
     useEffect(() => { fetchEmotion(); }, [fetchEmotion]);
+
+    // ── File helpers ──────────────────────────────────────────
+    function handleFileSelect(file: File) {
+        const ok = ACCEPTED_MIME.includes(file.type) ||
+            ACCEPTED_TYPES.split(',').some(ext => file.name.endsWith(ext.replace('.', '')));
+        if (!ok) { alert('対応ファイル: PDF, TXT, MD, CSV, JSON'); return; }
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+        setAttachedFile({ file, name: file.name, size: file.size, ext });
+    }
+
+    function onDragOver(e: React.DragEvent) { e.preventDefault(); setIsDragging(true); }
+    function onDragLeave(e: React.DragEvent) {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false);
+    }
+    function onDrop(e: React.DragEvent) {
+        e.preventDefault(); setIsDragging(false);
+        const f = e.dataTransfer.files[0];
+        if (f) handleFileSelect(f);
+    }
 
     // Voice input (Web Speech API)
     function startVoiceInput() {
@@ -694,6 +773,24 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
     // ─── Input box ────────────────────────────────────────────
     const inputBox = (
         <div className="w-full max-w-[720px] mx-auto">
+            {/* File preview bar */}
+            {attachedFile && (
+                <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl"
+                    style={{ background: 'var(--background-secondary)', border: '1px solid var(--border)' }}>
+                    <FileText size={14} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                    <span className="flex-1 text-xs truncate" style={{ color: 'var(--foreground)' }}>
+                        {attachedFile.name}
+                    </span>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--foreground-muted)' }}>
+                        {fmtSize(attachedFile.size)}
+                    </span>
+                    <button onClick={() => setAttachedFile(null)}
+                        className="p-0.5 rounded hover:bg-white/[0.06] flex-shrink-0"
+                        style={{ color: 'var(--foreground-muted)' }}>
+                        <X size={12} />
+                    </button>
+                </div>
+            )}
             <div
                 className="flex items-end gap-2 p-3 rounded-2xl transition-all"
                 style={{
@@ -702,12 +799,21 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                     boxShadow: '0 1px 6px rgba(160, 120, 130, 0.06)',
                 }}
             >
+                {/* Hidden file input */}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ACCEPTED_TYPES}
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); e.target.value = ''; }}
+                />
                 <button
+                    onClick={() => fileInputRef.current?.click()}
                     className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0 transition-colors hover:bg-[rgba(216,120,152,0.06)]"
-                    style={{ color: 'var(--foreground-muted)' }}
-                    title="添付"
+                    style={{ color: attachedFile ? 'var(--accent-primary)' : 'var(--foreground-muted)' }}
+                    title="ファイルを添付 (PDF / TXT / MD / CSV)"
                 >
-                    <Plus size={18} />
+                    {attachedFile ? <Paperclip size={16} /> : <Plus size={18} />}
                 </button>
                 <button
                     onClick={() => setAgentModalOpen(true)}
@@ -844,7 +950,37 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
 
     // ─── Chat state ───────────────────────────────────────────
     return (
-        <div className="flex-1 flex flex-col h-screen">
+        <div
+            className="flex-1 flex flex-col h-screen relative"
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+        >
+            {/* D&D overlay */}
+            <AnimatePresence>
+                {isDragging && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 pointer-events-none"
+                        style={{
+                            background: 'rgba(0,0,0,0.6)',
+                            backdropFilter: 'blur(4px)',
+                            border: '2px dashed var(--accent-primary)',
+                            borderRadius: '16px',
+                        }}
+                    >
+                        <FileText size={48} style={{ color: 'var(--accent-primary)', opacity: 0.8 }} />
+                        <p className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>
+                            ファイルをここにドロップ
+                        </p>
+                        <p className="text-sm" style={{ color: 'var(--foreground-muted)' }}>
+                            PDF • TXT • MD • CSV • JSON に対応
+                        </p>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             {/* Agent bar + header */}
             <div className="px-6 pt-3 pb-1 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
                 <span className="text-xl flex-shrink-0">{currentAgent.icon}</span>
@@ -877,19 +1013,19 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                                             <div className="text-sm leading-relaxed prose-cocoro py-1"
                                                 style={{ color: 'var(--foreground)' }}
                                             >
-                                                {msg.content ? (
-                                                    <>
-                                                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                                                            {msg.content}
-                                                        </ReactMarkdown>
-                                                        {msg.streaming && (
-                                                            <span
-                                                                className="inline-block w-0.5 h-4 ml-0.5 align-text-bottom animate-pulse"
-                                                                style={{ background: currentAgent.color }}
-                                                            />
-                                                        )}
-                                                    </>
-                                                ) : (
+                                                {msg.content ? (() => {
+                                                    const LIMIT = 600;
+                                                    const isLong = !msg.streaming && msg.content.length > LIMIT;
+                                                    return (
+                                                        <ExpandableContent
+                                                            content={msg.content}
+                                                            isLong={isLong}
+                                                            streaming={!!msg.streaming}
+                                                            cursorColor={currentAgent.color}
+                                                            markdownComponents={markdownComponents}
+                                                        />
+                                                    );
+                                                })() : (
                                                     <div className="flex gap-1 py-2">
                                                         {[0, 1, 2].map(i => (
                                                             <motion.div
