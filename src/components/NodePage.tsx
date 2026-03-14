@@ -4,9 +4,11 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Server, Cpu, HardDrive, Wifi, Activity, RefreshCw, Clock,
-    CheckCircle2, Loader2, Heart, Zap, Brain
+    CheckCircle2, Heart, Zap, Brain
 } from 'lucide-react';
 import type { CoreEmotionState } from '@/lib/cocoro-core';
+import ConnectionErrorBanner from './ConnectionErrorBanner';
+import { SkeletonGridPage } from './SkeletonUI';
 
 interface NodeStatus {
     status: string;
@@ -149,11 +151,7 @@ export default function NodePage() {
     }, [fetchStatus]);
 
     if (loading || !node) {
-        return (
-            <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="animate-spin" size={32} style={{ color: 'var(--accent-primary)' }} />
-            </div>
-        );
+        return <SkeletonGridPage cols={2} cards={4} />;
     }
 
     const memUsage = parseFloat(node.memory.usage_percent);
@@ -162,6 +160,8 @@ export default function NodePage() {
 
     return (
         <div className="flex-1 flex flex-col h-screen overflow-y-auto">
+            {/* Connection error banner */}
+            <ConnectionErrorBanner serviceName="cocoro-core" onReconnected={fetchStatus} />
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div>

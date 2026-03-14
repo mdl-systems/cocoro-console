@@ -19,6 +19,7 @@ import ToastContainer from '@/components/ToastContainer';
 import DailyBriefingBanner from '@/components/DailyBriefingBanner';
 import SplashScreen from '@/components/SplashScreen';
 import CommandPalette from '@/components/CommandPalette';
+import ConnectionErrorBanner from '@/components/ConnectionErrorBanner';
 
 export default function ConsolePage() {
   const [currentPage, setCurrentPage] = useState<NavPage>('chat');
@@ -231,6 +232,10 @@ export default function ConsolePage() {
       <main className="flex-1 flex flex-col overflow-hidden md:pt-0 pt-14">
         {currentPage === 'chat' && (
           <DailyBriefingBanner onNavigateTasks={() => setCurrentPage('tasks')} />
+        )}
+        {/* Inline connection error bar — only shown on chat page when core is needed */}
+        {currentPage === 'chat' && (
+          <ConnectionErrorBanner serviceName="cocoro-core" />
         )}
         {renderPage()}
       </main>

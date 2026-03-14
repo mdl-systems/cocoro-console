@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Activity, RefreshCw, MessageCircle, Shield, TrendingUp,
-    CheckCircle2, XCircle, Loader2, Clock, BarChart3, AlertTriangle, Link2,
+    CheckCircle2, XCircle, Clock, BarChart3, AlertTriangle, Link2,
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer,
 } from 'recharts';
 import SyncWidget, { getSyncColor } from './SyncWidget';
+import ConnectionErrorBanner from './ConnectionErrorBanner';
+import { SkeletonGridPage } from './SkeletonUI';
 
 // ─── 型 ──────────────────────────────────────────────────────
 interface ServiceStatus {
@@ -194,17 +196,16 @@ export default function DashboardPage() {
     }, [fetchAll]);
 
     if (loading) {
-        return (
-            <div className="flex-1 flex items-center justify-center">
-                <Loader2 className="animate-spin" size={28} style={{ color: 'var(--accent-primary)' }} />
-            </div>
-        );
+        return <SkeletonGridPage cols={4} cards={4} />;
     }
 
     const onlineCount = services.filter(s => s.status === 'online').length;
 
     return (
         <div className="flex-1 flex flex-col h-screen overflow-y-auto">
+            {/* Inline connection error banner */}
+            <ConnectionErrorBanner serviceName="cocoro-core" onReconnected={() => fetchAll(true)} />
+
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-5"
                 style={{ borderBottom: '1px solid var(--border)' }}>

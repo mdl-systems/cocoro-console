@@ -170,6 +170,12 @@ cocoro-console/
 - [x] ユニットテスト（Vitest 27件 全パス：crypto / chat-crypto / sessions）
 - [x] CI/CDパイプライン（GitHub Actions：push 毎に自動テスト）
 - [x] E2Eテスト（Playwright 16件：startup / navigation / chat / lock）
+- [x] ダークモード完全実装（CSS変数 / light・dark・system / localStorage 永続化）
+- [x] PWA対応（manifest.json / Service Worker / icon-192.png / icon-512.png / offline.html）
+- [x] モバイル完全対応（ハンバーガードロワー / 入力欄固定 / エージェント横スクロール）
+- [x] エラーハンドリング強化（ConnectionErrorBanner: 「cocoro-coreに接続できません」+ 再接続ボタン）
+- [x] スケルトンUI（SkeletonUI.tsx: shimmerローディング / Dashboard・NodePage 適用）
+- [x] **v1.0.0 リリース（git tag v1.0.0）**
 
 ---
 
@@ -180,3 +186,5 @@ cocoro-console/
 | 2026-03-08 | 初版・PIN認証・チャット暗号化・Docker対応 |
 | 2026-03-09 | cocoro-agent 連携・AgentsPage全面刷新（タスク投入・統計表示） |
 | 2026-03-09 | `@mdl-systems/cocoro-sdk` 統合・SSEストリーミング刷新 |
+| 2026-03-10 | レスポンシブUI・ダークモード・PWA・モバイル対応 |
+| 2026-03-14 | ConnectionErrorBanner・SkeletonUI・v1.0.0 リリース |
