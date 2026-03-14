@@ -1,15 +1,35 @@
 @import "tailwindcss";
 
+/* ─── Light theme (default) ────────────────────────────────────
+   Both legacy names (--background, --foreground, …) AND
+   the new spec names (--bg-primary, --text-primary, …) are defined
+   so legacy components continue to work without modification.
+   ─────────────────────────────────────────────────────────────── */
 :root {
-  --background: #faf8f7;
-  --background-secondary: #f3f0ee;
-  --background-tertiary: #ebe6e3;
-  --foreground: #1a1614;
-  --foreground-muted: #6b6460;
-  --border: rgba(160, 120, 130, 0.15);
-  --accent-primary: #d87898;
+  /* ── New spec variable names ── */
+  --bg-primary:   #faf8f7;
+  --bg-secondary: #f3f0ee;
+  --bg-card:      #ffffff;
+  --text-primary:   #111111;
+  --text-secondary: #666666;
+  --border:  rgba(160, 120, 130, 0.20);
+  --accent:  #ff69b4;
+
+  /* ── Legacy aliases (kept for all existing components) ── */
+  --background:           var(--bg-primary);
+  --background-secondary: var(--bg-secondary);
+  --background-tertiary:  #ebe6e3;
+  --foreground:           var(--text-primary);
+  --foreground-muted:     var(--text-secondary);
+  --accent-primary:       #d87898;
   --accent-primary-light: #e8a0b8;
-  --accent-secondary: #c4607c;
+  --accent-secondary:     #c4607c;
+
+  /* Status colours */
+  --success: #4ade80;
+  --warning: #facc15;
+  --danger:  #f87171;
+  --info:    #60a5fa;
 }
 
 @theme inline {
@@ -19,49 +39,138 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* system dark */
+/* ─── System dark (when browser/OS prefer dark AND no data-theme override) ── */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --background: #0a0a0a;
-    --background-secondary: #1a1a1a;
-    --background-tertiary: #252525;
-    --foreground: #f0eded;
-    --foreground-muted: #9a8f8f;
-    --border: rgba(255, 255, 255, 0.08);
-    --accent-primary: #e090b0;
+    --bg-primary:   #0a0a0a;
+    --bg-secondary: #141414;
+    --bg-card:      #1a1a1a;
+    --text-primary:   #ffffff;
+    --text-secondary: #999999;
+    --border:  rgba(255, 255, 255, 0.08);
+    --accent:  #ff69b4;
+
+    --background:           #0a0a0a;
+    --background-secondary: #141414;
+    --background-tertiary:  #252525;
+    --foreground:           #f0eded;
+    --foreground-muted:     #9a8f8f;
+    --accent-primary:       #e090b0;
     --accent-primary-light: #f0a8c4;
-    --accent-secondary: #c87090;
+    --accent-secondary:     #c87090;
   }
 }
 
-/* forced dark */
+/* ─── Forced dark ───────────────────────────────────────────── */
 [data-theme="dark"] {
-  --background: #0a0a0a;
-  --background-secondary: #1a1a1a;
-  --background-tertiary: #252525;
-  --foreground: #f0eded;
-  --foreground-muted: #9a8f8f;
-  --border: rgba(255, 255, 255, 0.08);
-  --accent-primary: #e090b0;
+  --bg-primary:   #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-card:      #1a1a1a;
+  --text-primary:   #ffffff;
+  --text-secondary: #999999;
+  --border:  rgba(255, 255, 255, 0.08);
+  --accent:  #ff69b4;
+
+  --background:           #0a0a0a;
+  --background-secondary: #141414;
+  --background-tertiary:  #252525;
+  --foreground:           #f0eded;
+  --foreground-muted:     #9a8f8f;
+  --accent-primary:       #e090b0;
   --accent-primary-light: #f0a8c4;
-  --accent-secondary: #c87090;
+  --accent-secondary:     #c87090;
 }
 
-/* forced light */
+/* ─── Forced light ──────────────────────────────────────────── */
 [data-theme="light"] {
-  --background: #faf8f7;
+  --bg-primary:   #faf8f7;
+  --bg-secondary: #f3f0ee;
+  --bg-card:      #ffffff;
+  --text-primary:   #111111;
+  --text-secondary: #666666;
+  --border:  rgba(160, 120, 130, 0.20);
+  --accent:  #ff69b4;
+
+  --background:           #faf8f7;
   --background-secondary: #f3f0ee;
-  --background-tertiary: #ebe6e3;
-  --foreground: #1a1614;
-  --foreground-muted: #6b6460;
-  --border: rgba(160, 120, 130, 0.15);
-  --accent-primary: #d87898;
+  --background-tertiary:  #ebe6e3;
+  --foreground:           #1a1614;
+  --foreground-muted:     #6b6460;
+  --accent-primary:       #d87898;
   --accent-primary-light: #e8a0b8;
-  --accent-secondary: #c4607c;
+  --accent-secondary:     #c4607c;
 }
 
+/* ─── Base ──────────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ─── Utility classes used throughout components ────────────── */
+.glass-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 0.6rem;
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.input-field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.input-field:focus {
+  border-color: var(--accent-primary);
+}
+
+/* ─── Mobile: agent-select scroll row ──────────────────────── */
+.agent-scroll-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.agent-scroll-row::-webkit-scrollbar { display: none; }
+
+/* ─── Mobile: sticky chat input bar ────────────────────────── */
+@media (max-width: 767px) {
+  .chat-input-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border);
+    padding: env(safe-area-inset-bottom, 0.5rem) 0.75rem 0.75rem;
+  }
+  .chat-bubble {
+    max-width: 100% !important;
+  }
 }

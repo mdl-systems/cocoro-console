@@ -247,8 +247,7 @@ type AgentId = typeof AGENTS[number]['id'];
 function AgentBar({ selected, onSelect }: { selected: AgentId; onSelect: (id: AgentId) => void }) {
     return (
         <div
-            className="flex gap-2 overflow-x-auto py-2 px-1 scrollbar-none"
-            style={{ scrollbarWidth: 'none' }}
+            className="agent-scroll-row flex-1 py-2 px-1"
         >
             {AGENTS.map(agent => {
                 const active = selected === agent.id;
@@ -1053,7 +1052,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                                     // ── USER: 右側・テーマカラーバブル ──────────
                                     <div className="flex flex-col items-end gap-1">
                                         <div
-                                            className="max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
+                                            className="chat-bubble max-w-[75%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap"
                                             style={{
                                                 background: `${currentAgent.color}18`,
                                                 color: 'var(--foreground)',
@@ -1076,10 +1075,10 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                 </div>
             </div>
 
-            {/* Fixed input */}
-            <div className="px-6 py-4">
+            {/* Fixed input — chat-input-bar pins to bottom on mobile */}
+            <div className="chat-input-bar px-6 py-4">
                 {inputBox}
-                <p className="text-[10px] text-center mt-2" style={{ color: 'var(--foreground-muted)', opacity: 0.35 }}>
+                <p className="text-[10px] text-center mt-2 hidden md:block" style={{ color: 'var(--foreground-muted)', opacity: 0.35 }}>
                     Cocoroは間違えることがあります。重要な情報は確認してください。
                 </p>
             </div>

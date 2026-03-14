@@ -1,9 +1,9 @@
 {
-    "name": "Cocoro Console",
+    "name": "Cocoro OS",
     "short_name": "Cocoro",
-    "description": "Personal AI Node — Local Management Interface",
-    "theme_color": "#d87898",
-    "background_color": "#faf8f7",
+    "description": "あなただけのAI人格OS",
+    "theme_color": "#ff69b4",
+    "background_color": "#0a0a0a",
     "display": "standalone",
     "orientation": "portrait-primary",
     "start_url": "/",

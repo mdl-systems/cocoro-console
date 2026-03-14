@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>オフライン — Cocoro</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { color-scheme: dark; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0a0a0a;
+      color: #f0eded;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 2rem;
+      gap: 1.5rem;
+    }
+    .icon {
+      font-size: 3.5rem;
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.7; transform: scale(0.95); }
+    }
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    p {
+      font-size: 0.875rem;
+      color: #9a8f8f;
+      max-width: 320px;
+      line-height: 1.6;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      background: rgba(255,105,180,0.12);
+      border: 1px solid rgba(255,105,180,0.25);
+      color: #ff69b4;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #ff69b4;
+      animation: blink 1.2s step-start infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    button {
+      margin-top: 0.5rem;
+      padding: 0.6rem 1.5rem;
+      border-radius: 0.75rem;
+      border: 1px solid rgba(255,105,180,0.3);
+      background: rgba(255,105,180,0.08);
+      color: #ff69b4;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: rgba(255,105,180,0.16); }
+  </style>
+</head>
+<body>
+  <div class="icon">🌸</div>
+  <h1>接続を確認してください</h1>
+  <p>Cocoro はオフラインのため、このページを表示できません。<br>LAN 接続または Wi-Fi を確認してから再試行してください。</p>
+  <span class="pill"><span class="dot"></span>オフライン</span>
+  <button onclick="window.location.reload()">再試行</button>
+</body>
+</html>
