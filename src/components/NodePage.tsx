@@ -10,6 +10,19 @@ import type { CoreEmotionState } from '@/lib/cocoro-core';
 import ConnectionErrorBanner from './ConnectionErrorBanner';
 import { SkeletonGridPage } from './SkeletonUI';
 
+// ─── 登録済みノード型 ─────────────────────────────────────────
+interface RegisteredNode {
+    id: string;
+    name: string;
+    ip: string;
+    port: number;
+    roles: string[];
+    status: string;
+    last_seen: string | null;
+    created_at: string;
+    _source?: 'local' | 'core';
+}
+
 interface NodeStatus {
     status: string;
     device_id: string;
@@ -106,15 +119,17 @@ function CircularGauge({ value, max = 1, color, size = 80, label, sub }:
 export default function NodePage() {
     const [node, setNode] = useState<NodeStatus | null>(null);
     const [emotion, setEmotion] = useState<CoreEmotionState | null>(null);
+    const [registeredNodes, setRegisteredNodes] = useState<RegisteredNode[]>([]);
     const [loading, setLoading] = useState(true);
     const [coreOnline, setCoreOnline] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
     const fetchStatus = useCallback(async () => {
         try {
-            const [nodeRes, emotionRes] = await Promise.all([
+            const [nodeRes, emotionRes, nodesRes] = await Promise.all([
                 fetch('/api/node'),
                 fetch('/api/node/emotion'),
+                fetch('/api/nodes'),
             ]);
             const nodeJson = await nodeRes.json();
             // jsonSuccess ラッパー: { success: true, data: { ... } }
@@ -124,10 +139,6 @@ export default function NodePage() {
             // core_connected フラグがノードレスポンスにおける品質情報ソース
             if (nodeData.core_connected) {
                 setCoreOnline(true);
-                // core_emotion が含まれる場合はそのまま使用
-                if (nodeData.core_emotion) {
-                    // emotion マップは別途エンドポイントから取得する
-                }
             }
 
             // /api/node/emotion で読み込む（CORE_ENABLED 時）
@@ -139,10 +150,19 @@ export default function NodePage() {
                     setCoreOnline(true);
                 }
             }
+
+            // /api/nodes — cocoro-core 登録済みノード一覧
+            if (nodesRes.ok) {
+                const nodesJson = await nodesRes.json();
+                const raw = nodesJson.nodes ?? nodesJson.data?.nodes ?? [];
+                if (Array.isArray(raw)) setRegisteredNodes(raw as RegisteredNode[]);
+            }
+
             setLastUpdated(new Date());
         } catch { /* ignore */ }
         finally { setLoading(false); }
     }, []);
+
 
     useEffect(() => {
         fetchStatus();
@@ -369,6 +389,110 @@ export default function NodePage() {
                             </div>
                         ))}
                     </div>
+                </motion.div>
+
+                {/* ── Registered Nodes ──────────────────────────────── */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }} className="glass-panel p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Server size={18} style={{ color: 'var(--accent-primary)' }} />
+                        <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                            登録済みノード
+                        </span>
+                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full"
+                            style={{ background: 'rgba(216,120,152,0.1)', color: 'var(--accent-primary)' }}>
+                            {registeredNodes.length}台
+                        </span>
+                    </div>
+
+                    {registeredNodes.length === 0 ? (
+                        <p className="text-xs py-4 text-center" style={{ color: 'var(--foreground-muted)' }}>
+                            登録済みノードがありません
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {registeredNodes.map((n, idx) => {
+                                const isOnline = n.status === 'online';
+                                const isOffline = n.status === 'offline';
+                                const statusColor = isOnline ? 'var(--success)' : isOffline ? 'var(--danger)' : 'var(--warning)';
+                                const statusLabel = isOnline ? 'オンライン' : isOffline ? 'オフライン' : '不明';
+                                const lastSeen = n.last_seen
+                                    ? new Date(n.last_seen).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+                                    : null;
+
+                                return (
+                                    <motion.div key={n.id}
+                                        initial={{ opacity: 0, y: 6 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="p-4 rounded-xl"
+                                        style={{
+                                            background: 'var(--background-tertiary)',
+                                            border: `1px solid ${isOnline ? 'rgba(52,211,153,0.25)' : 'var(--border)'}`,
+                                        }}
+                                    >
+                                        {/* ノード名 + ステータス */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="relative flex w-2 h-2">
+                                                    <span className="block w-2 h-2 rounded-full"
+                                                        style={{ background: statusColor }} />
+                                                    {isOnline && <span className="absolute inset-0 rounded-full animate-ping opacity-40"
+                                                        style={{ background: statusColor }} />}
+                                                </span>
+                                                <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>
+                                                    {n.name}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                                style={{ background: `${statusColor}22`, color: statusColor }}>
+                                                {statusLabel}
+                                            </span>
+                                        </div>
+
+                                        {/* IP + ポート */}
+                                        <div className="flex items-center gap-2 text-[11px] mb-2"
+                                            style={{ color: 'var(--foreground-muted)' }}>
+                                            <Wifi size={10} />
+                                            <span className="font-mono">{n.ip}:{n.port}</span>
+                                            {n._source === 'core' && (
+                                                <span className="px-1.5 py-0.5 rounded text-[9px]"
+                                                    style={{ background: 'rgba(216,120,152,0.1)', color: 'var(--accent-primary)' }}>
+                                                    cocoro-core
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* ロール */}
+                                        {n.roles.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mb-2">
+                                                {n.roles.map(role => (
+                                                    <span key={role}
+                                                        className="text-[9px] px-1.5 py-0.5 rounded"
+                                                        style={{
+                                                            background: 'var(--background-secondary)',
+                                                            border: '1px solid var(--border)',
+                                                            color: 'var(--foreground-muted)',
+                                                        }}>
+                                                        {role}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* 最終確認 */}
+                                        {lastSeen && (
+                                            <div className="text-[10px] flex items-center gap-1"
+                                                style={{ color: 'var(--foreground-muted)' }}>
+                                                <Clock size={9} />
+                                                最終確認: {lastSeen}
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </motion.div>
             </div>
         </div>
