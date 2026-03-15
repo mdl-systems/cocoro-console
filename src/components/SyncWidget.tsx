@@ -46,10 +46,32 @@ export default function SyncWidget({ compact = false }: { compact?: boolean }) {
         try {
             const res = await fetch('/api/sync/rate');
             if (!res.ok) return;
-            const d = await res.json();
-            setSync(d.data ?? d);
+            const raw = await res.json();
+            // jsonSuccess は { success, sync_rate, rate, ... } でスプレッドするため
+            // d.data は存在しない。d.sync_rate または d.rate を参照する
+            const d = raw.data ?? raw;
+
+            // sync_rate / rate の両方を試みて0-1スケールに正規化
+            function toRate(v: unknown): number | undefined {
+                const n = parseFloat(String(v ?? ''));
+                if (isNaN(n)) return undefined;
+                return n > 1 ? n / 100 : n;  // 39.8 → 0.398, 0.398 → 0.398
+            }
+
+            const syncRate = toRate(d.sync_rate) ?? toRate(d.rate);
+            if (syncRate === undefined) return; // データなしの場合はスキップ
+
+            setSync({
+                sync_rate: syncRate,
+                prev_sync_rate: toRate(d.prev_sync_rate ?? d.prevRate),
+                values_alignment: toRate(d.values_alignment),
+                empathy_score: toRate(d.empathy_score),
+                label: typeof d.label === 'string' ? d.label : undefined,
+                source: d.source as 'core' | 'local' | undefined,
+            });
         } catch { /* offline */ }
     }, []);
+
 
     useEffect(() => {
         fetchSync();

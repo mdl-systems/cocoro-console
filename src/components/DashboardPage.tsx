@@ -157,6 +157,7 @@ export default function DashboardPage() {
         else setRefreshing(true);
 
         try {
+            // /api/health と /api/stats を並列取得（ポーリングなし・手動Refresh時のみ）
             const [healthRes, statsRes] = await Promise.all([
                 fetch('/api/health'),
                 fetch('/api/stats'),
@@ -169,7 +170,6 @@ export default function DashboardPage() {
             if (Array.isArray(rawServices)) setServices(rawServices);
 
             // /api/stats: { success, recentConversations, agentUsage, recentLogs, ... }
-            //             または { success, data: { ... } }
             const d = statsData.data ?? statsData;
             if (Array.isArray(d.recentConversations)) setConvs(d.recentConversations);
             if (Array.isArray(d.agentUsage))          setAgents(d.agentUsage);
@@ -195,12 +195,10 @@ export default function DashboardPage() {
         }
     }, []);
 
-
+    // 初回マウント時のみfetch（setIntervalは廃止 → 429対策）
     useEffect(() => { fetchAll(); }, [fetchAll]);
-    useEffect(() => {
-        const id = setInterval(() => fetchAll(true), 60_000); // 60秒ごと（429対策）
-        return () => clearInterval(id);
-    }, [fetchAll]);
+    // setInterval は削除。ConnectionErrorBanner が health を60秒ごとに監視する。
+
 
     if (loading) {
         return <SkeletonGridPage cols={4} cards={4} />;
