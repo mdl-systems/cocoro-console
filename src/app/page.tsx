@@ -19,6 +19,8 @@ import ToastContainer from '@/components/ToastContainer';
 import DailyBriefingBanner from '@/components/DailyBriefingBanner';
 import SplashScreen from '@/components/SplashScreen';
 import CommandPalette from '@/components/CommandPalette';
+import ConnectionErrorBanner from '@/components/ConnectionErrorBanner';
+
 
 
 export default function ConsolePage() {
@@ -233,7 +235,10 @@ export default function ConsolePage() {
         {currentPage === 'chat' && (
           <DailyBriefingBanner onNavigateTasks={() => setCurrentPage('tasks')} />
         )}
-
+        {/* 接続エラーバナー: cocoro-core が offline の時のみ表示 */}
+        {currentPage === 'chat' && (
+          <ConnectionErrorBanner serviceName="cocoro-core" />
+        )}
         {renderPage()}
       </main>
       <ToastContainer onNavigateTasks={() => setCurrentPage('tasks')} />

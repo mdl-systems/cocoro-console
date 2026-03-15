@@ -11,7 +11,7 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import SyncWidget, { getSyncColor } from './SyncWidget';
-
+import ConnectionErrorBanner from './ConnectionErrorBanner';
 import { SkeletonGridPage } from './SkeletonUI';
 
 // ─── 型 ──────────────────────────────────────────────────────
@@ -203,7 +203,8 @@ export default function DashboardPage() {
 
     return (
         <div className="flex-1 flex flex-col h-screen overflow-y-auto">
-
+            {/* 接続エラーバナー: cocoro-core が offline の時のみ表示 */}
+            <ConnectionErrorBanner serviceName="cocoro-core" onReconnected={() => fetchAll(true)} />
 
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-5"

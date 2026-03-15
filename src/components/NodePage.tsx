@@ -7,7 +7,7 @@ import {
     CheckCircle2, Heart, Zap, Brain
 } from 'lucide-react';
 import type { CoreEmotionState } from '@/lib/cocoro-core';
-
+import ConnectionErrorBanner from './ConnectionErrorBanner';
 import { SkeletonGridPage } from './SkeletonUI';
 
 interface NodeStatus {
@@ -160,7 +160,8 @@ export default function NodePage() {
 
     return (
         <div className="flex-1 flex flex-col h-screen overflow-y-auto">
-
+            {/* 接続エラーバナー: cocoro-core が offline の時のみ表示 */}
+            <ConnectionErrorBanner serviceName="cocoro-core" onReconnected={fetchStatus} />
             {/* Header */}
             <div className="flex items-center justify-between px-8 py-6" style={{ borderBottom: '1px solid var(--border)' }}>
                 <div>
