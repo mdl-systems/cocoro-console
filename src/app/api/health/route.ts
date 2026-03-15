@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     const rateLimited = checkRate(request);
     if (rateLimited) return rateLimited;
 
-    const sessionCheck = requireSession(request);
-    if (sessionCheck) return sessionCheck;
+    // NOTE: ヘルスチェックはセッション認証不要。
+    // ConnectionErrorBanner がセッション確立前にも呼ぶため。
 
     const [core, agent] = await Promise.all([
         ping(`${COCORO_CORE_URL}/health`),

@@ -24,23 +24,25 @@ interface ConnectionErrorBannerProps {
 async function checkHealth(): Promise<ConnStatus> {
     try {
         const res = await fetch('/api/health', { signal: AbortSignal.timeout(5000) });
-        if (!res.ok) return 'degraded';
-        const data = await res.json();
-        // Support both { data: { services } } (jsonSuccess wrapper) and { services }
-        const services: { id?: string; status: string }[] =
-            data?.data?.services ?? data?.services ?? [];
-        if (services.length === 0) {
-            // /api/health returned 200 but no services array —
-            // this happens when nginx forwards to cocoro-core directly.
-            // A 200 from core means it's alive.
+        // /api/health が 200 OK を返せば cocoro-core は稼働中と判定。
+        // Next.js の health route は内部で cocoro-core に ping しており、
+        // core が落ちていれば services[].status = 'offline' を返すが
+        // レスポンス自体は 200 のため、service 単位で判定する。
+        if (!res.ok) return 'offline';
+        try {
+            const data = await res.json();
+            const services: { id?: string; status: string }[] =
+                data?.data?.services ?? data?.services ?? [];
+            // services 配列が空 or 存在しない → 200 が返った時点で online
+            if (services.length === 0) return 'online';
+            // core service を探して status を確認
+            const coreService = services.find(s => s.id === 'core');
+            if (!coreService) return 'online'; // core entry がない = 直接レスポンス = alive
+            return coreService.status === 'online' ? 'online' : 'degraded';
+        } catch {
+            // JSON parse error でも 200 が返っていれば online
             return 'online';
         }
-        const coreService = services.find(s => s.id === 'core');
-        if (coreService && coreService.status === 'online') {
-            return 'online';
-        }
-        // core service exists but not online, or no core entry → degraded
-        return 'degraded';
     } catch {
         return 'offline';
     }
