@@ -26,11 +26,21 @@ async function checkHealth(): Promise<ConnStatus> {
         const res = await fetch('/api/health', { signal: AbortSignal.timeout(5000) });
         if (!res.ok) return 'degraded';
         const data = await res.json();
-        const services: { status: string }[] = data?.data?.services ?? [];
-        const coreOnline = services.some(
-            (s: { status: string }) => s.status === 'online'
-        );
-        return coreOnline ? 'online' : 'degraded';
+        // Support both { data: { services } } (jsonSuccess wrapper) and { services }
+        const services: { id?: string; status: string }[] =
+            data?.data?.services ?? data?.services ?? [];
+        if (services.length === 0) {
+            // /api/health returned 200 but no services array —
+            // this happens when nginx forwards to cocoro-core directly.
+            // A 200 from core means it's alive.
+            return 'online';
+        }
+        const coreService = services.find(s => s.id === 'core');
+        if (coreService && coreService.status === 'online') {
+            return 'online';
+        }
+        // core service exists but not online, or no core entry → degraded
+        return 'degraded';
     } catch {
         return 'offline';
     }
