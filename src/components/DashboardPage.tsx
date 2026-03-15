@@ -177,7 +177,7 @@ export default function DashboardPage() {
 
             // Sync rate history
             try {
-                const syncRes = await fetch('/api/sync/state?mode=history');
+                const syncRes = await fetch('/api/sync/history');
                 if (syncRes.ok) {
                     const syncData = await syncRes.json();
                     setSyncHistory(syncData.data?.history ?? syncData.history ?? []);

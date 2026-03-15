@@ -44,7 +44,7 @@ export default function SyncWidget({ compact = false }: { compact?: boolean }) {
 
     const fetchSync = useCallback(async () => {
         try {
-            const res = await fetch('/api/sync/state');
+            const res = await fetch('/api/sync/rate');
             if (!res.ok) return;
             const d = await res.json();
             setSync(d.data ?? d);

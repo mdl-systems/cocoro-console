@@ -258,22 +258,15 @@ function AgentBar({ selected, onSelect }: { selected: AgentId; onSelect: (id: Ag
                         onClick={() => onSelect(agent.id)}
                         whileTap={{ scale: 0.92 }}
                         layout
-                        className="flex items-center gap-2 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-250"
+                        className="flex items-center rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-250"
                         style={{
-                            padding: active ? '6px 14px 6px 10px' : '6px 12px',
+                            padding: '6px 14px',
                             background: active ? `${c}20` : 'var(--background-secondary)',
                             border: `1.5px solid ${active ? c : 'var(--border)'}`,
                             color: active ? c : 'var(--foreground-muted)',
                             boxShadow: active ? `0 2px 10px ${c}30` : 'none',
                         }}
                     >
-                        <motion.span
-                            animate={{ fontSize: active ? 16 : 13 }}
-                            transition={{ duration: 0.2 }}
-                            style={{ lineHeight: 1, display: 'block' }}
-                        >
-                            {agent.icon}
-                        </motion.span>
                         {agent.name}
                     </motion.button>
                 );
@@ -900,14 +893,6 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
 
                 {/* Center content */}
                 <div className="flex-1 flex flex-col items-center justify-center px-6">
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="text-4xl mb-4"
-                    >
-                        {currentAgent.icon}
-                    </motion.div>
                     <motion.h1
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
