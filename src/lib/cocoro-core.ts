@@ -1,4 +1,4 @@
-﻿/**
+/**
  * src/lib/cocoro-core.ts
  *
  * cocoro-core HTTP API の直接クライアント。
@@ -317,8 +317,25 @@ interface RawMonitor {
 }
 
 export async function coreNodeStatus(): Promise<CoreDashboard | null> {
-    const d = await coreGet<RawMonitor>('/monitor')
-    if (!d) return null
+    // /monitor/dashboard を優先して試みる（/monitor は 404 になるため）
+    let d = await coreGet<RawMonitor>('/monitor/dashboard')
+
+    // /monitor/dashboard が失敗した場合は /health にフォールバック
+    if (!d) {
+        const h = await coreGet<{ status?: string; uptime?: number }>('/health')
+        if (h) {
+            return {
+                status: h.status ?? 'ok',
+                uptime: h.uptime ?? 0,
+                cpu_usage: 0,
+                memory_usage: 0,
+                active_agents: 0,
+                tasks_today: 0,
+            }
+        }
+        return null
+    }
+
     return {
         status: d.status ?? 'ok',
         uptime: d.uptime ?? 0,
