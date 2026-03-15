@@ -19,32 +19,90 @@ interface ConnectionErrorBannerProps {
     status?: ConnStatus;
 }
 
-// ─── Health check ───────────────────────────────────────────────
+// ─── Singleton health poller ────────────────────────────────────
 //
-// 【判定ルール】
-//   HTTP 200 が返れば → 'online'（バナー非表示）
-//   HTTP 非200 / fetch失敗 → 'offline'（バナー表示）
+// globalThis を使って HMR / 複数インスタンス間で状態を共有する。
+// 複数ページに <ConnectionErrorBanner /> が置かれていても
+// /api/health へのリクエストは POLL_INTERVAL_MS に 1 回だけ送られる。
 //
-// レスポンスボディは見ない。
-//   - cocoro-core 直接: { "status": "healthy" } → 200 → online ✅
-//   - Next.js 経由:     { "services": [...] }    → 200 → online ✅
-//
-export async function checkHealth(): Promise<ConnStatus> {
+type HealthState = {
+    status: ConnStatus;
+    listeners: Set<(s: ConnStatus) => void>;
+    timerId: ReturnType<typeof setInterval> | null;
+    lastFetch: number; // epoch ms
+};
+
+function getGlobalHealthState(): HealthState {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = globalThis as any;
+    if (!g.__cocoroHealthState) {
+        g.__cocoroHealthState = {
+            status: 'checking' as ConnStatus,
+            listeners: new Set<(s: ConnStatus) => void>(),
+            timerId: null,
+            lastFetch: 0,
+        } as HealthState;
+    }
+    return g.__cocoroHealthState as HealthState;
+}
+
+const POLL_INTERVAL_MS = 120_000;  // 120秒（429対策）
+const MIN_FETCH_INTERVAL_MS = 30_000; // 30秒以内の重複fetchを抑制
+
+async function fetchHealth(): Promise<ConnStatus> {
+    const state = getGlobalHealthState();
+    const now = Date.now();
+
+    // 最低間隔チェック（複数コンポーネントから同時に呼ばれた場合）
+    if (now - state.lastFetch < MIN_FETCH_INTERVAL_MS) {
+        // 前回の状態を返す（checking の場合は online として扱う）
+        return state.status === 'checking' ? 'online' : state.status;
+    }
+    state.lastFetch = now;
+
     try {
         const res = await fetch('/api/health', {
             signal: AbortSignal.timeout(5000),
             cache: 'no-store',
         });
-        // HTTP 200 OK → 接続正常
-        // HTTP 非200  → 接続異常
+
+        // ─── 429 Too Many Requests ─────────────────────────────
+        // レートリミットは「接続不可」ではない。
+        // 前回の成功状態を維持してバナーを出さない。
+        if (res.status === 429) {
+            console.warn('[Health] 429 received – keeping previous status:', state.status);
+            return state.status === 'checking' ? 'online' : state.status;
+        }
+
         return res.ok ? 'online' : 'offline';
     } catch {
-        // タイムアウト / ネットワークエラー
+        // タイムアウト / ネットワークエラーのみ offline
         return 'offline';
     }
 }
 
+function startGlobalPoller() {
+    const state = getGlobalHealthState();
+    if (state.timerId !== null) return; // 既に起動済み
 
+    // 初回フェッチ
+    fetchHealth().then(s => {
+        state.status = s;
+        state.listeners.forEach(fn => fn(s));
+    });
+
+    // POLL_INTERVAL_MS ごとのポーリング
+    state.timerId = setInterval(async () => {
+        const s = await fetchHealth();
+        state.status = s;
+        state.listeners.forEach(fn => fn(s));
+    }, POLL_INTERVAL_MS);
+}
+
+// 外部から直接チェックできるエクスポート（手動 retry 用）
+export async function checkHealth(): Promise<ConnStatus> {
+    return fetchHealth();
+}
 
 // ─── Sub: Inline banner ────────────────────────────────────────
 
@@ -182,9 +240,9 @@ function FullscreenError({
 /**
  * ConnectionErrorBanner
  *
- * /api/health のレスポンスを解析して接続状態を判定する。
- * services[id='core'].status === 'online' の時のみ非表示。
- * 15秒ごとに自動ポーリング。
+ * Singleton グローバルポーラーで /api/health を 120 秒ごとに確認する。
+ * 複数ページにマウントされても fetch は 1 回だけ実行される。
+ * 429 受信時は前回の成功状態を維持してバナーを表示しない。
  */
 export default function ConnectionErrorBanner({
     fullscreen = false,
@@ -192,17 +250,36 @@ export default function ConnectionErrorBanner({
     serviceName = 'cocoro-core',
     status: externalStatus,
 }: ConnectionErrorBannerProps) {
-    const [status, setStatus] = useState<ConnStatus>(externalStatus ?? 'checking');
+    const [status, setStatus] = useState<ConnStatus>(() => {
+        if (externalStatus !== undefined) return externalStatus;
+        // グローバル状態から初期値を取得（ページ遷移後も維持）
+        const g = getGlobalHealthState();
+        return g.status === 'checking' ? 'checking' : g.status;
+    });
     const [retrying, setRetrying] = useState(false);
     const [reconnectedFlash, setReconnectedFlash] = useState(false);
 
-    const doCheck = useCallback(async () => {
-        if (externalStatus !== undefined) return; // 外部制御モード
-        const s = await checkHealth();
-        setStatus(s);
-        if (s === 'online') {
-            onReconnected?.();
-        }
+    // グローバルポーラーに購読する
+    useEffect(() => {
+        if (externalStatus !== undefined) return;
+
+        const state = getGlobalHealthState();
+
+        const listener = (s: ConnStatus) => {
+            setStatus(s);
+            if (s === 'online') onReconnected?.();
+        };
+
+        state.listeners.add(listener);
+        startGlobalPoller(); // 二重起動はガード済み
+
+        // 現在の状態を即時反映
+        if (state.status !== 'checking') setStatus(state.status);
+
+        return () => {
+            state.listeners.delete(listener);
+            // タイマーは残す（他のリスナーが使っている可能性があるため）
+        };
     }, [externalStatus, onReconnected]);
 
     // 外部 status の同期
@@ -210,17 +287,14 @@ export default function ConnectionErrorBanner({
         if (externalStatus !== undefined) setStatus(externalStatus);
     }, [externalStatus]);
 
-    // 自動ポーリング（セルフマネージドモード）
-    useEffect(() => {
-        if (externalStatus !== undefined) return;
-        doCheck();
-        const id = setInterval(doCheck, 60_000); // 60秒ごと（429対策）
-        return () => clearInterval(id);
-    }, [doCheck, externalStatus]);
-
     const handleRetry = useCallback(async () => {
         setRetrying(true);
-        const s = await checkHealth();
+        // 再試行時は MIN_FETCH_INTERVAL_MS を無視して強制フェッチ
+        getGlobalHealthState().lastFetch = 0;
+        const s = await fetchHealth();
+        const state = getGlobalHealthState();
+        state.status = s;
+        state.listeners.forEach(fn => fn(s));
         setStatus(s);
         if (s === 'online') {
             setReconnectedFlash(true);
