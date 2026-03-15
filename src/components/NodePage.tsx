@@ -146,7 +146,7 @@ export default function NodePage() {
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 10_000);
+        const interval = setInterval(fetchStatus, 30_000); // 30秒ごと（429対策）
         return () => clearInterval(interval);
     }, [fetchStatus]);
 

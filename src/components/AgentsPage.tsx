@@ -164,11 +164,12 @@ function TaskRow({ task }: { task: Task }) {
                 <div className="mt-2 pt-2 text-[11px] space-y-1" style={{ borderTop: '1px solid var(--border)', color: 'var(--foreground-muted)' }}>
                     <div>エージェント: <span style={{ color: 'var(--foreground)' }}>{task.assignedTo ?? '—'}</span></div>
                     {task.currentStep && <div>現在: <span style={{ color: 'var(--foreground)' }}>{task.currentStep}</span></div>}
-                    {task.result && (
+                    {task.result != null && (
                         <div className="mt-1 p-2 rounded" style={{ background: 'var(--background-tertiary)' }}>
                             <pre className="whitespace-pre-wrap text-[10px]">{JSON.stringify(task.result, null, 2)}</pre>
                         </div>
                     )}
+
                     {task.error && <div className="text-red-400">エラー: {task.error}</div>}
                 </div>
             )}
@@ -359,7 +360,7 @@ export default function AgentsPage() {
     useEffect(() => { fetchAll(); }, [fetchAll]);
     // 5秒ごとに自動リフレッシュ
     useEffect(() => {
-        const id = setInterval(() => fetchAll(true), 5000);
+        const id = setInterval(() => fetchAll(true), 30_000); // 30秒ごと（429対策）
         return () => clearInterval(id);
     }, [fetchAll]);
 

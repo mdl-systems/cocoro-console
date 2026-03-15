@@ -164,9 +164,11 @@ export default function DashboardPage() {
             const healthData = await healthRes.json();
             const statsData = await statsRes.json();
 
-            if (healthData.data?.services) setServices(healthData.data.services);
-            if (statsData.data) {
-                const d = statsData.data;
+            // jsonSuccess は { success: true, ...data } でスプレッドするため
+            // data.data は存在しない。直接 data.services / data.history を参照する
+            if (healthData.services) setServices(healthData.services);
+            if (statsData.data || statsData.recentConversations !== undefined) {
+                const d = statsData.data ?? statsData;
                 setConvs(d.recentConversations ?? []);
                 setAgents(d.agentUsage ?? []);
                 setLogs(d.recentLogs ?? []);
@@ -180,9 +182,11 @@ export default function DashboardPage() {
                 const syncRes = await fetch('/api/sync/history');
                 if (syncRes.ok) {
                     const syncData = await syncRes.json();
-                    setSyncHistory(syncData.data?.history ?? syncData.history ?? []);
+                    // jsonSuccess スプレッド: data.history が正しいパス
+                    setSyncHistory(syncData.history ?? syncData.data?.history ?? []);
                 }
             } catch { /* ignore */ }
+
         } catch { /* ignore */ } finally {
             setLoading(false);
             setRefreshing(false);

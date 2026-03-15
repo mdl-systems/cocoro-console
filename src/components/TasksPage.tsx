@@ -367,7 +367,7 @@ export default function TasksPage() {
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
     useEffect(() => {
-        const id = setInterval(() => fetchTasks(true), 8_000);
+        const id = setInterval(() => fetchTasks(true), 30_000); // 30秒ごと（429対策）
         return () => clearInterval(id);
     }, [fetchTasks]);
 

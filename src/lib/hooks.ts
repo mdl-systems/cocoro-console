@@ -108,7 +108,7 @@ export function useNodeStatus() {
 
     useEffect(() => {
         fetchStatus();
-        const interval = setInterval(fetchStatus, 10000); // Every 10s
+        const interval = setInterval(fetchStatus, 60000); // 60秒ごと（429対策）
         return () => clearInterval(interval);
     }, [fetchStatus]);
 
