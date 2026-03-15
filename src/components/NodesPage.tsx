@@ -282,9 +282,13 @@ export default function NodesPage() {
         try {
             const res = await fetch('/api/nodes');
             const data = await res.json();
-            if (data.success) setNodes(data.data?.nodes ?? data.nodes ?? []);
+            // Array.isArray ガード: 配列でない場合は [] にフォールバック
+            const raw = data.nodes ?? data.data?.nodes ?? data;
+            if (Array.isArray(raw)) setNodes(raw);
+            else setNodes([]);
         } catch { /* ignore */ } finally { setLoading(false); }
     }, []);
+
 
     useEffect(() => { fetchNodes(); }, [fetchNodes]);
 

@@ -164,17 +164,19 @@ export default function DashboardPage() {
             const healthData = await healthRes.json();
             const statsData = await statsRes.json();
 
-            // jsonSuccess は { success: true, ...data } でスプレッドするため
-            // data.data は存在しない。直接 data.services / data.history を参照する
-            if (healthData.services) setServices(healthData.services);
-            if (statsData.data || statsData.recentConversations !== undefined) {
-                const d = statsData.data ?? statsData;
-                setConvs(d.recentConversations ?? []);
-                setAgents(d.agentUsage ?? []);
-                setLogs(d.recentLogs ?? []);
-                setTotalConvs(d.totalConversations ?? 0);
-                setTotalMsgs(d.totalMessages ?? 0);
-            }
+            // /api/health: { success, services:[...] } または { status:'healthy' }
+            const rawServices = healthData.services ?? healthData.data?.services;
+            if (Array.isArray(rawServices)) setServices(rawServices);
+
+            // /api/stats: { success, recentConversations, agentUsage, recentLogs, ... }
+            //             または { success, data: { ... } }
+            const d = statsData.data ?? statsData;
+            if (Array.isArray(d.recentConversations)) setConvs(d.recentConversations);
+            if (Array.isArray(d.agentUsage))          setAgents(d.agentUsage);
+            if (Array.isArray(d.recentLogs))           setLogs(d.recentLogs);
+            if (typeof d.totalConversations === 'number') setTotalConvs(d.totalConversations);
+            if (typeof d.totalMessages === 'number')      setTotalMsgs(d.totalMessages);
+
             setLastUpdated(new Date());
 
             // Sync rate history
@@ -182,8 +184,8 @@ export default function DashboardPage() {
                 const syncRes = await fetch('/api/sync/history');
                 if (syncRes.ok) {
                     const syncData = await syncRes.json();
-                    // jsonSuccess スプレッド: data.history が正しいパス
-                    setSyncHistory(syncData.history ?? syncData.data?.history ?? []);
+                    const rawHistory = syncData.history ?? syncData.data?.history;
+                    if (Array.isArray(rawHistory)) setSyncHistory(rawHistory);
                 }
             } catch { /* ignore */ }
 
@@ -192,6 +194,7 @@ export default function DashboardPage() {
             setRefreshing(false);
         }
     }, []);
+
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
     useEffect(() => {

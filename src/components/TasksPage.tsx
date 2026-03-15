@@ -361,9 +361,12 @@ export default function TasksPage() {
             const res = await fetch('/api/tasks');
             if (!res.ok) { setTasks([]); return; }
             const data = await res.json();
-            setTasks(data.tasks ?? data.data?.tasks ?? []);
+            // Array.isArray ガード: 配列でない場合は [] にフォールバック
+            const raw = data.tasks ?? data.data?.tasks ?? data;
+            setTasks(Array.isArray(raw) ? raw : []);
         } catch { setTasks([]); } finally { setLoading(false); setRefreshing(false); }
     }, []);
+
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
     useEffect(() => {
