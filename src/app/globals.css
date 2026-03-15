@@ -134,7 +134,10 @@ body {
 
 .input-field {
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 0.75rem;   /* Tailwind pl-* でオーバーライド可能 */
+  padding-right: 0.75rem;  /* Tailwind pr-* でオーバーライド可能 */
   border-radius: 0.5rem;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
