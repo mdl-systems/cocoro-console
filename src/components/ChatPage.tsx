@@ -565,14 +565,14 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
         try {
             const res = await fetch(`/api/chat?conversation_id=${convId}`);
             const data = await res.json();
-            setMessages(data.history || []);
+            setMessages((data.history || []).map((m: Message) => ({ ...m, content: m.content.replace(/\r/g, '') })));
         } catch { /* ignore */ }
     }
 
     const sendMessage = useCallback(async () => {
         if (!input.trim() || streaming) return;
 
-        const content = input.trim();
+        const content = input.trim().replace(/\r/g, '');
         const userMsg: Message = {
             id: `temp_user_${Date.now()}`,
             role: 'user',
@@ -637,9 +637,10 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                             if (currentEvent === 'chunk' && payload.text !== undefined) {
                                 setMessages(prev => prev.map(m =>
                                     m.id === assistantMsg.id
-                                        ? { ...m, content: m.content + payload.text }
+                                        ? { ...m, content: m.content + payload.text.replace(/\r/g, '') }
                                         : m
                                 ));
+
                             }
                             if (currentEvent === 'done') {
                                 assistantIdFromServer = payload.id;
@@ -1045,7 +1046,7 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
                                                 borderBottomRightRadius: '6px',
                                             }}
                                         >
-                                            {msg.content}
+                                            {msg.content.replace(/\r/g, '')}
                                         </div>
                                         <div className="text-[10px] pr-1" style={{ color: 'var(--foreground-muted)', opacity: 0.45 }}>
                                             {new Date(msg.timestamp).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
