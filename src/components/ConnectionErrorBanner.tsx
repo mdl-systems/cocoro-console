@@ -214,7 +214,7 @@ export default function ConnectionErrorBanner({
     useEffect(() => {
         if (externalStatus !== undefined) return;
         doCheck();
-        const id = setInterval(doCheck, 15_000);
+        const id = setInterval(doCheck, 60_000); // 60秒ごと（429対策）
         return () => clearInterval(id);
     }, [doCheck, externalStatus]);
 

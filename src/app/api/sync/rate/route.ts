@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
@@ -26,9 +26,32 @@ export async function GET(request: NextRequest) {
         });
         if (res.ok) {
             const data = await res.json();
-            return jsonSuccess({ ...data, source: 'core' });
+
+            // cocoro-core が返す sync_rate を 0-1 に正規化：
+            //   - 0.73 などの小数（正しい形式）→ そのまま使用
+            //   - 73 などの整数（0-100 スケール）→ 100 で割る
+            //   - undefined / NaN → フォールバック値を使用
+            function normRate(v: unknown): number | undefined {
+                const n = parseFloat(String(v));
+                if (isNaN(n)) return undefined;
+                return n > 1 ? n / 100 : n; // 1超 = 0-100スケール → 割る
+            }
+
+            const syncRate = normRate(data.sync_rate ?? data.rate ?? data.syncRate);
+
+            if (syncRate !== undefined) {
+                return jsonSuccess({
+                    sync_rate: syncRate,
+                    prev_sync_rate: normRate(data.prev_sync_rate ?? data.prevRate),
+                    values_alignment: normRate(data.values_alignment),
+                    empathy_score: normRate(data.empathy_score),
+                    label: data.label,
+                    source: 'core',
+                });
+            }
         }
     } catch { /* core offline */ }
+
 
     // Fallback
     return jsonSuccess({

@@ -191,7 +191,7 @@ export default function DashboardPage() {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
     useEffect(() => {
-        const id = setInterval(() => fetchAll(true), 15_000);
+        const id = setInterval(() => fetchAll(true), 60_000); // 60秒ごと（429対策）
         return () => clearInterval(id);
     }, [fetchAll]);
 
