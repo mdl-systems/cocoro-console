@@ -20,7 +20,8 @@ function generateMockHistory(days = 30): Array<{ date: string; value: number }> 
     return history;
 }
 
-// ── GET /api/sync/state ───────────────────────────────────────
+// ── GET /api/sync/state ─────────────────────────────────────────
+// cocoro-core endpoint: /sync/rate (current) / /sync/history (?mode=history)
 export async function GET(request: NextRequest) {
     const rateLimited = checkRate(request);
     if (rateLimited) return rateLimited;
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Current state
-        const res = await fetch(`${COCORO_CORE_URL}/sync/state`, {
+        const res = await fetch(`${COCORO_CORE_URL}/sync/rate`, {
             headers: { Authorization: `Bearer ${COCORO_API_KEY}` },
             signal: AbortSignal.timeout(4000),
         });

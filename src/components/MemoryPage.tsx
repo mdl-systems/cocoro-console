@@ -238,7 +238,7 @@ export default function MemoryPage() {
         try {
             const params = new URLSearchParams();
             if (typeFilter) params.set('type', typeFilter);
-            const res = await fetch(`/api/memory?${params}`);
+            const res = await fetch(`/api/memory/list?${params}`);
             const data = await res.json();
             let list: MemoryEntry[] = data.memories ?? [];
             if (catFilter) list = list.filter(m => m.category === catFilter);

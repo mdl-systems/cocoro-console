@@ -54,7 +54,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
             setStepStatus('memory', 'loading');
             await delay(250);
             try {
-                await fetch('/api/memory');
+                await fetch('/api/memory/list');
                 setStepStatus('memory', 'done');
             } catch { setStepStatus('memory', 'skipped'); }
 
