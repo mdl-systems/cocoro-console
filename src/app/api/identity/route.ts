@@ -1,3 +1,6 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateDeviceIdentity } from '@/core/identity';
 import { logAccess, checkRate, jsonSuccess, jsonError } from '@/core/api-helper';

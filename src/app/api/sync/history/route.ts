@@ -1,3 +1,6 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * GET /api/sync/history
  * cocoro-core の /sync/history エンドポイントに対応。

@@ -1,3 +1,6 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest } from 'next/server';
 import { getUserProfile, updateUserProfile } from '@/core/identity';
 import { validateBody, ProfileUpdateSchema } from '@/core/validators';

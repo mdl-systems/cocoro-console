@@ -1,3 +1,6 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createSession, validateSession, unlockSession, destroySession } from '@/core/sessions';
 import { getOrCreateDeviceIdentity } from '@/core/identity';

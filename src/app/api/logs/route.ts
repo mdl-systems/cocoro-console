@@ -1,3 +1,6 @@
+﻿export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextRequest } from 'next/server';
 import { getRecentLogs, getTodayLogStats } from '@/core/security';
 import { checkRate, requireSession, jsonSuccess, jsonError } from '@/core/api-helper';
