@@ -21,50 +21,79 @@ interface ConnectionErrorBannerProps {
 
 // ─── Health check ───────────────────────────────────────────────
 //
-// /api/health のレスポンス形式（jsonSuccess スプレッド）:
-//   { success: true, services: [{ id, name, status, latencyMs }], checkedAt }
+// 対応するレスポンス形式:
+//   A) Next.js /api/health (cocoro-console経由):
+//      { success: true, services: [{ id:'core', status:'online'|'offline' }, ...] }
+//   B) cocoro-core /health 直接 (nginx が core に転送している場合):
+//      { status: 'healthy', version: '1.0.0', ... }
 //
-// 判定ロジック:
-//   1. fetch 自体が失敗 → 'offline'
-//   2. HTTP 200 以外 → 'offline'
-//   3. services[id='core'].status === 'online' → 'online'
-//   4. services[id='core'] が存在するが offline → 'degraded'
-//   5. services 配列がない/空 → HTTP 200 が返った時点で 'online' とみなす
+// 判定優先順位:
+//   0. fetch 失敗 (タイムアウト/ネットワークエラー) → 'offline'
+//   1. HTTP 非200 → 'offline'
+//   2. HTTP 200 → まず 'online' とみなす（最重要ルール）
+//   3. (オプション詳細) services 配列があれば core の status を確認
+//      → core が 'offline' の場合のみ 'degraded' に格下げ
 //
 export async function checkHealth(): Promise<ConnStatus> {
     try {
         const res = await fetch('/api/health', {
             signal: AbortSignal.timeout(5000),
-            // セッション cookie が自動送信されるのでヘッダー不要
+            cache: 'no-store',
         });
 
-        // HTTP 非200 はサービス障害 or 認証エラー
-        if (!res.ok) return 'offline';
+        // ── ルール 1: HTTP ステータスで判定 ──
+        if (!res.ok) {
+            console.debug('[ConnectionBanner] /api/health non-200:', res.status);
+            return 'offline';
+        }
 
-        const data = await res.json();
+        // ── ルール 2: HTTP 200 → 基本的に online ──
+        // (cocoro-core 直接フォーマット { status:'healthy' } でも 200 なら alive)
+        let data: Record<string, unknown> = {};
+        try {
+            data = await res.json();
+        } catch {
+            // JSON パース失敗でも 200 が返ったなら online とみなす
+            console.debug('[ConnectionBanner] /api/health JSON parse error, but 200 → online');
+            return 'online';
+        }
 
-        // jsonSuccess は { success: true, ...data } でスプレッドするため
-        // services は data.services（data.data.services ではない）
-        const services: { id?: string; status: string }[] = data?.services ?? [];
+        console.debug('[ConnectionBanner] /api/health response:', JSON.stringify(data).slice(0, 200));
+
+        // ── ルール 3 (オプション詳細): cocoro-core 直接フォーマット ──
+        // { status: 'healthy' | 'ok' | 'error', ... }
+        if (typeof data.status === 'string' && data.services === undefined) {
+            const coreStatus = data.status as string;
+            if (coreStatus === 'error' || coreStatus === 'unhealthy') {
+                return 'degraded';
+            }
+            // 'healthy', 'ok', その他 → online
+            return 'online';
+        }
+
+        // ── ルール 4: Next.js フォーマット ──
+        // { success: true, services: [{ id:'core', status:'online'|'offline' }] }
+        const services = (data.services as { id?: string; status: string }[] | undefined) ?? [];
 
         if (services.length === 0) {
-            // services 配列がない = 200 が返ってきた = サービスは生きている
-            return 'online';
+            return 'online'; // services なし = 200 が返った = alive
         }
 
         const coreService = services.find(s => s.id === 'core');
-
         if (!coreService) {
-            // core エントリがない場合も、200 が返った = alive とみなす
-            return 'online';
+            return 'online'; // core エントリなし = 200 が返った = alive
         }
 
-        return coreService.status === 'online' ? 'online' : 'degraded';
-    } catch {
-        // fetch タイムアウト or ネットワークエラー
+        const result = coreService.status === 'online' ? 'online' : 'degraded';
+        console.debug('[ConnectionBanner] core service status:', coreService.status, '→', result);
+        return result;
+
+    } catch (err) {
+        console.debug('[ConnectionBanner] /api/health fetch failed:', err);
         return 'offline';
     }
 }
+
 
 // ─── Sub: Inline banner ────────────────────────────────────────
 
