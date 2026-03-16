@@ -46,8 +46,13 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
             try {
                 const r = await fetch('/api/health');
                 const d = await r.json();
-                const coreUp = d.data?.services?.find((s: { id: string }) => s.id === 'core')?.status === 'online';
+                // jsonSuccess は { success, services:[...] } でスプレッド（d.data は存在しない）
+                const services = d.services ?? d.data?.services ?? [];
+                const coreUp = Array.isArray(services)
+                    && services.some((s: { id: string; status: string }) =>
+                        s.id === 'core' && s.status === 'online');
                 setStepStatus('core', coreUp ? 'done' : 'skipped');
+
             } catch { setStepStatus('core', 'skipped'); }
 
             // memory
@@ -103,7 +108,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                     >
                         <CocoroLogo size={64} />
                         <div className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>
-                            Cocoro Console
+                            Cocoro OS
                         </div>
                         <div className="flex items-center gap-1.5">
                             <Zap size={12} style={{ color: 'var(--accent-primary)' }} />
