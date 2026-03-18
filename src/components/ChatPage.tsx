@@ -6,7 +6,13 @@ import { Send, Plus, Square, Bot, X, Loader2, CheckCircle2, Search, PenLine, Cod
 import { apiStream } from '@/lib/api-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import dynamic from 'next/dynamic';
+
+// react-syntax-highlighter はSSRでクラッシュするためクライアント専用でロード
+const SyntaxHighlighter = dynamic(
+    () => import('react-syntax-highlighter').then(mod => mod.Prism),
+    { ssr: false, loading: () => <code style={{ display: 'block', padding: '1rem', fontSize: '13px' }} /> }
+);
 
 interface Message {
     id: string;
