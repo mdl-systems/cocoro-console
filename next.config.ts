@@ -27,10 +27,8 @@ const CSP = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
-  // NOTE: output: 'standalone' は Next.js 16 Turbopack + middleware.ts の組み合わせで
-  // .next/server/middleware.js.nft.json が生成されないバグがある (2024-2025 既知)
-  // Docker では .next ディレクトリをそのままコピーする通常モードを使用する
-  // output: 'standalone',
+  // standalone: Dockerfile の COPY --from=builder /app/.next/standalone に必要
+  output: 'standalone',
 
   typescript: {
     // Type errors are caught by unit tests and local tsc.
