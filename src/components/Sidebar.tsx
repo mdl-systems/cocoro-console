@@ -19,6 +19,7 @@ import {
     Trash2,
     Menu,
     X,
+    Sprout,
 } from 'lucide-react';
 import CocoroLogo from './CocoroLogo';
 
@@ -39,7 +40,6 @@ interface SidebarProps {
     activeConversationId: string | null;
     onSelectConversation: (id: string) => void;
     onDeleteConversation: (id: string) => void;
-    // Mobile
     mobileOpen?: boolean;
     onMobileClose?: () => void;
 }
@@ -71,15 +71,15 @@ export default function Sidebar({
         onMobileClose?.();
     }, [onNavigate, onMobileClose]);
 
-    const bottomNav: { id: NavPage; icon: React.ComponentType<{ size?: number }>; label: string }[] = [
-        { id: 'dashboard', icon: LayoutDashboard, label: 'ダッシュボード' },
-        { id: 'tasks', icon: ClipboardList, label: 'タスク' },
-        { id: 'agents', icon: Bot, label: 'エージェント' },
-        { id: 'node', icon: Server, label: 'ノード監視' },
-        { id: 'nodes', icon: Network, label: 'ノード管理' },
-        { id: 'memory', icon: Brain, label: 'メモリ' },
-        { id: 'security', icon: Shield, label: 'セキュリティ' },
-        { id: 'settings', icon: Settings, label: '設定' },
+    const bottomNav: { id: NavPage; icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; label: string }[] = [
+        { id: 'dashboard', icon: LayoutDashboard, label: 'ホーム' },
+        { id: 'tasks',     icon: ClipboardList,   label: 'タスク' },
+        { id: 'agents',    icon: Bot,              label: '専門家' },
+        { id: 'memory',    icon: Brain,            label: '記憶・学習' },
+        { id: 'node',      icon: Server,           label: 'ノード' },
+        { id: 'nodes',     icon: Network,          label: 'ネットワーク' },
+        { id: 'security',  icon: Shield,           label: 'セキュリティ' },
+        { id: 'settings',  icon: Settings,         label: '設定' },
     ];
 
     function groupConversations(convs: Conversation[]) {
@@ -186,7 +186,6 @@ export default function Sidebar({
             <AnimatePresence>
                 {mobileOpen && (
                     <>
-                        {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             transition={{ duration: 0.2 }}
@@ -194,14 +193,12 @@ export default function Sidebar({
                             style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)' }}
                             onClick={onMobileClose}
                         />
-                        {/* Drawer */}
                         <motion.div
                             initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
                             transition={{ duration: 0.25, ease: 'easeOut' }}
                             className="fixed inset-y-0 left-0 z-50 flex flex-col w-72"
                             style={{ background: 'var(--background-secondary)', borderRight: '1px solid var(--border)' }}
                         >
-                            {/* Header */}
                             <div className="flex items-center justify-between px-4 pt-4 pb-2">
                                 <div className="flex items-center gap-2">
                                     <CocoroLogo size={26} />
@@ -214,7 +211,6 @@ export default function Sidebar({
                                 </button>
                             </div>
 
-                            {/* Nav shortcuts */}
                             <div className="grid grid-cols-4 gap-1 px-3 py-2">
                                 {bottomNav.map(({ id, icon: Icon, label }) => {
                                     const isActive = currentPage === id;
@@ -234,7 +230,6 @@ export default function Sidebar({
 
                             <div style={{ height: 1, background: 'var(--border)', margin: '0 12px' }} />
 
-                            {/* Conversations */}
                             <div className="flex-1 flex flex-col overflow-hidden">
                                 {convPanel}
                             </div>
@@ -245,70 +240,84 @@ export default function Sidebar({
         );
     }
 
-    // ── Desktop: icon bar + expandable panel ─────────────────
+    // ── Desktop: expanded nav sidebar (icon + label) ─────────
     return (
         <>
             <aside
-                className="flex flex-col items-center py-3 border-r flex-shrink-0"
-                style={{ width: 52, background: 'var(--background-secondary)', borderColor: 'var(--border)' }}
+                className="flex flex-col py-3 border-r flex-shrink-0"
+                style={{ width: 200, background: 'var(--background-secondary)', borderColor: 'var(--border)' }}
             >
-                <button onClick={() => navigate('chat')} className="mb-2 transition-transform hover:scale-105" title="Cocoro">
-                    <CocoroLogo size={28} />
-                </button>
+                {/* Logo + title */}
+                <div className="flex items-center gap-2.5 px-4 mb-4">
+                    <button onClick={() => navigate('chat')} className="transition-transform hover:scale-105 flex-shrink-0" title="Cocoro">
+                        <CocoroLogo size={26} />
+                    </button>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Cocoro OS</span>
+                </div>
 
-                <button
-                    onClick={() => setExpanded(!expanded)}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors hover:bg-[rgba(216,120,152,0.08)] mb-1"
-                    style={{ color: 'var(--foreground-muted)' }}
-                    title={expanded ? '閉じる' : '履歴'}
-                >
-                    {expanded ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
-                </button>
+                {/* New chat + history toggle */}
+                <div className="px-2 mb-2 space-y-0.5">
+                    <button
+                        onClick={onNewChat}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-sm"
+                        style={{ color: 'var(--foreground-muted)' }}
+                    >
+                        <SquarePen size={15} />
+                        <span>新しいチャット</span>
+                    </button>
+                    <button
+                        onClick={() => setExpanded(!expanded)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-sm"
+                        style={{ color: 'var(--foreground-muted)' }}
+                        title={expanded ? '閉じる' : '履歴'}
+                    >
+                        {expanded ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+                        <span>チャット履歴</span>
+                    </button>
+                </div>
 
-                <button
-                    onClick={onNewChat}
-                    className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors hover:bg-[rgba(216,120,152,0.08)]"
-                    style={{ color: 'var(--foreground-muted)' }}
-                    title="新しいチャット"
-                >
-                    <SquarePen size={18} />
-                </button>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 12px 8px' }} />
 
-                <div className="flex-1" />
-
-                <div className="space-y-1">
+                {/* Nav items */}
+                <nav className="flex-1 px-2 space-y-0.5">
                     {bottomNav.map(({ id, icon: Icon, label }) => {
                         const isActive = currentPage === id;
                         return (
                             <button
                                 key={id}
                                 onClick={() => navigate(id)}
-                                className="w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200"
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm text-left"
                                 style={{
                                     color: isActive ? 'var(--accent-primary)' : 'var(--foreground-muted)',
                                     background: isActive ? 'rgba(216, 120, 152, 0.10)' : 'transparent',
+                                    fontWeight: isActive ? 500 : 400,
                                 }}
-                                title={label}
                             >
-                                <Icon size={18} />
+                                <Icon size={15} style={{ flexShrink: 0 }} />
+                                <span>{label}</span>
                             </button>
                         );
                     })}
-                </div>
+                </nav>
 
-                <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
-                        style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))', color: '#fff' }}>
-                        <LayoutDashboard size={14} />
+                {/* User avatar area */}
+                <div className="mt-auto pt-3 px-3" style={{ borderTop: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))', color: '#fff' }}>
+                            <Sprout size={13} />
+                        </div>
+                        <span className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>マイノード</span>
                     </div>
                 </div>
             </aside>
 
+            {/* Expandable conversation history panel */}
             <AnimatePresence>
                 {expanded && (
                     <motion.div
                         initial={{ width: 0, opacity: 0 }}
-                        animate={{ width: 260, opacity: 1 }}
+                        animate={{ width: 240, opacity: 1 }}
                         exit={{ width: 0, opacity: 0 }}
                         transition={{ duration: 0.2, ease: 'easeInOut' }}
                         className="h-screen flex flex-col border-r overflow-hidden flex-shrink-0"

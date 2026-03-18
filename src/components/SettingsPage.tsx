@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import {
     Settings, User, Globe, Palette, Bell, Shield, Database,
     Save, Loader2, Sun, Moon, Monitor, Check, Download, Trash2, AlertTriangle,
+    Bot, Copy, Upload, Sparkles,
 } from 'lucide-react';
 import { apiPut } from '@/lib/api-client';
 
@@ -12,6 +13,7 @@ import { apiPut } from '@/lib/api-client';
 interface Profile {
     name: string;
     nickname: string;
+    ai_nickname: string;
     interests: string[];
     ai_preferences: { personality: string; language: string; formality: string };
 }
@@ -53,7 +55,6 @@ function applyTheme(theme: Theme) {
 }
 
 // ─── Sub-components ───────────────────────────────────────────
-
 function SectionCard({ delay = 0, icon, title, children }: {
     delay?: number; icon: React.ReactNode; title: string; children: React.ReactNode;
 }) {
@@ -141,6 +142,182 @@ function DangerButton({
     );
 }
 
+// ─── Personality Prompt Section ───────────────────────────────
+function PersonalitySection({ profile }: { profile: Profile | null }) {
+    const [outputMode, setOutputMode] = useState<'chatgpt' | 'gemini' | 'claude' | 'generic' | null>(null);
+    const [generatedPrompt, setGeneratedPrompt] = useState('');
+    const [generating, setGenerating] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const [importText, setImportText] = useState('');
+    const [importing, setImporting] = useState(false);
+    const [importDone, setImportDone] = useState(false);
+
+    const FORMAT_MAP = {
+        chatgpt: { label: 'ChatGPT用', prefix: '# カスタム指示（ChatGPT）\n\n' },
+        gemini:  { label: 'Gemini用',  prefix: '# システムプロンプト（Gemini）\n\n' },
+        claude:  { label: 'Claude用',  prefix: '<system>\n' },
+        generic: { label: '汎用',       prefix: '# AIアシスタント設定\n\n' },
+    } as const;
+
+    async function generatePrompt(mode: typeof outputMode) {
+        if (!mode) return;
+        setOutputMode(mode);
+        setGenerating(true);
+        setGeneratedPrompt('');
+        try {
+            const res = await fetch('/api/memory');
+            const data = await res.json();
+            const memories = Array.isArray(data.memories ?? data.data?.memories) ? (data.memories ?? data.data?.memories) : [];
+            const name = profile?.nickname || profile?.name || 'ユーザー';
+            const personality = profile?.ai_preferences?.personality || 'friendly';
+            const formality = profile?.ai_preferences?.formality || 'polite';
+            const interests = profile?.interests?.join('、') || '';
+            const fmt = FORMAT_MAP[mode];
+            const memStr = memories.slice(0, 10).map((m: { content?: string }) => `- ${m.content ?? ''}`).join('\n');
+
+            const prompt = `${fmt.prefix}あなたは ${name} さんのパーソナルAIアシスタントです。
+
+【性格・スタイル】
+性格タイプ: ${personality}
+口調: ${formality}
+
+【${name} さんの情報】
+興味・関心: ${interests || '（未設定）'}
+
+【学習した記憶・習慣】
+${memStr || '（まだ記憶がありません）'}
+
+【行動指針】
+- ${name} さんのことを深く理解し、最適なサポートを提供してください
+- 過去の会話から学んだ好みや習慣を積極的に活かしてください
+- 専門用語は避け、わかりやすい言葉で説明してください${mode === 'claude' ? '\n</system>' : ''}`;
+
+            setGeneratedPrompt(prompt);
+        } catch {
+            setGeneratedPrompt('プロンプトの生成に失敗しました。');
+        }
+        setGenerating(false);
+    }
+
+    async function copyPrompt() {
+        await navigator.clipboard.writeText(generatedPrompt);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    }
+
+    async function importPrompt() {
+        if (!importText.trim()) return;
+        setImporting(true);
+        setImportDone(false);
+        try {
+            await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: `以下は私の人格・価値観・思考パターンです。これを学習してあなたの人格に反映してください：\n${importText}`,
+                    system_hint: 'personality_import',
+                    conversation_id: null,
+                }),
+            });
+            setImportDone(true);
+            setImportText('');
+            setTimeout(() => setImportDone(false), 4000);
+        } catch { /* ignore */ }
+        setImporting(false);
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* Output */}
+            <div>
+                <p className="text-xs font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+                    人格プロンプト出力
+                </p>
+                <p className="text-[11px] mb-3" style={{ color: 'var(--foreground-muted)' }}>
+                    あなたの人格をプロンプトとして出力します。他のAIサービスにコピーしてご利用ください。
+                </p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                    {(Object.keys(FORMAT_MAP) as Array<keyof typeof FORMAT_MAP>).map(k => (
+                        <button key={k}
+                            onClick={() => generatePrompt(k)}
+                            disabled={generating}
+                            className="text-xs py-2 px-3 rounded-lg transition-all font-medium"
+                            style={{
+                                background: outputMode === k ? 'rgba(216,120,152,0.12)' : 'var(--background-secondary)',
+                                border: `1px solid ${outputMode === k ? 'var(--accent-primary)' : 'var(--border)'}`,
+                                color: outputMode === k ? 'var(--accent-primary)' : 'var(--foreground-muted)',
+                            }}>
+                            {FORMAT_MAP[k].label}
+                        </button>
+                    ))}
+                </div>
+                {generatedPrompt && (
+                    <div className="relative">
+                        <textarea
+                            readOnly
+                            value={generatedPrompt}
+                            rows={8}
+                            className="input-field font-mono text-[11px] resize-none w-full"
+                            style={{ lineHeight: 1.6 }}
+                        />
+                        <button onClick={copyPrompt}
+                            className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded text-[10px] transition-all"
+                            style={{
+                                background: copied ? 'rgba(52,211,153,0.15)' : 'var(--background)',
+                                border: '1px solid var(--border)',
+                                color: copied ? '#34d399' : 'var(--foreground-muted)',
+                            }}>
+                            {copied ? <Check size={10} /> : <Copy size={10} />}
+                            {copied ? 'コピー済み' : 'コピー'}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div style={{ height: 1, background: 'var(--border)' }} />
+
+            {/* Import */}
+            <div>
+                <p className="text-xs font-medium mb-1" style={{ color: 'var(--foreground)' }}>
+                    人格プロンプト取り込み
+                </p>
+                <p className="text-[11px] mb-3" style={{ color: 'var(--foreground-muted)' }}>
+                    他のAIサービスで使っていたプロンプトを取り込むと、AIとの絆をすぐに高めることができます。
+                </p>
+                <textarea
+                    value={importText}
+                    onChange={e => setImportText(e.target.value)}
+                    rows={5}
+                    placeholder="ここにプロンプトを貼り付けてください..."
+                    className="input-field text-xs resize-none w-full mb-3"
+                    style={{ lineHeight: 1.6 }}
+                />
+                {importDone && (
+                    <div className="flex items-center gap-2 text-xs mb-2 px-3 py-2 rounded-lg"
+                        style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.3)', color: '#34d399' }}>
+                        <Sparkles size={12} />
+                        AIとの絆が向上しました！
+                    </div>
+                )}
+                <button
+                    onClick={importPrompt}
+                    disabled={importing || !importText.trim()}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                        background: importing || !importText.trim() ? 'var(--background-secondary)' : 'var(--accent-primary)',
+                        color: importing || !importText.trim() ? 'var(--foreground-muted)' : '#fff',
+                        border: '1px solid var(--border)',
+                        opacity: !importText.trim() ? 0.5 : 1,
+                    }}>
+                    {importing ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                    {importing ? '取り込み中...' : 'プロンプトを取り込む'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ─── Main Page ────────────────────────────────────────────────
 export default function SettingsPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -163,7 +340,7 @@ export default function SettingsPage() {
     useEffect(() => {
         fetch('/api/profile')
             .then(r => r.json())
-            .then(d => { setProfile(d); setLoading(false); })
+            .then(d => { setProfile({ ai_nickname: '', ...d }); setLoading(false); })
             .catch(() => setLoading(false));
     }, []);
 
@@ -183,6 +360,10 @@ export default function SettingsPage() {
         setSaving(true);
         try {
             await apiPut('/api/profile', profile as unknown as Record<string, unknown>);
+            // ai_nicknamをlocalStorageにも保存（ChatPageから参照）
+            if (profile.ai_nickname) {
+                localStorage.setItem('cocoro_ai_nickname', profile.ai_nickname);
+            }
             await fetch('/api/settings/language', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -227,8 +408,8 @@ export default function SettingsPage() {
     }
 
     const THEMES: { id: Theme; icon: React.ReactNode; label: string }[] = [
-        { id: 'light', icon: <Sun size={14} />, label: 'ライト' },
-        { id: 'dark', icon: <Moon size={14} />, label: 'ダーク' },
+        { id: 'light',  icon: <Sun size={14} />,     label: 'ライト' },
+        { id: 'dark',   icon: <Moon size={14} />,    label: 'ダーク' },
         { id: 'system', icon: <Monitor size={14} />, label: 'システム' },
     ];
     const LANGS: { id: Lang; flag: string; label: string }[] = [
@@ -273,6 +454,28 @@ export default function SettingsPage() {
                                 <input className="input-field"
                                     value={profile.interests.join(', ')}
                                     onChange={e => setProfile({ ...profile, interests: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                            </div>
+                        </div>
+                    )}
+                </SectionCard>
+
+                {/* ── AI Nickname ────────────────────────────── */}
+                <SectionCard delay={0.04} icon={<Bot size={15} style={{ color: 'var(--accent-primary)' }} />} title="AIのニックネーム">
+                    {profile && (
+                        <div>
+                            <p className="text-[11px] mb-3" style={{ color: 'var(--foreground-muted)' }}>
+                                チャット画面でのAIの呼び名を設定します。未設定の場合はデフォルト名が使われます。
+                            </p>
+                            <div>
+                                <label className="text-xs block mb-1.5" style={{ color: 'var(--foreground-muted)' }}>
+                                    AIのニックネーム
+                                </label>
+                                <input
+                                    className="input-field"
+                                    placeholder={`${profile.nickname || 'ユーザー'}のAI`}
+                                    value={profile.ai_nickname ?? ''}
+                                    onChange={e => setProfile({ ...profile, ai_nickname: e.target.value })}
+                                />
                             </div>
                         </div>
                     )}
@@ -404,6 +607,15 @@ export default function SettingsPage() {
                             loading={deleting}
                             onClick={deleteAll}
                         />
+                    </div>
+
+                    {/* Personality prompts */}
+                    <div className="mt-6 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Bot size={14} style={{ color: 'var(--accent-primary)' }} />
+                            <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>人格プロンプト</span>
+                        </div>
+                        <PersonalitySection profile={profile} />
                     </div>
                 </SectionCard>
             </div>

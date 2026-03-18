@@ -233,44 +233,54 @@ function AgentModal({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Agent list ─────────────────────────────────────────
+function getAiNickname() {
+    if (typeof window === 'undefined') return 'あなたのAI';
+    return localStorage.getItem('cocoro_ai_nickname') || 'あなたのAI';
+}
+
 const AGENTS = [
-    { id: 'default', name: 'MDL', icon: '🤖', description: 'あなたのAI', color: '#d87898' },
-    { id: 'lawyer', name: '弁護士', icon: '⚖️', description: '法律・契約', color: '#4a7ab5' },
-    { id: 'accountant', name: '税理士', icon: '📊', description: '税務・会計', color: '#3a9a6a' },
-    { id: 'engineer', name: 'エンジニア', icon: '💻', description: '開発・設計', color: '#4a6ab5' },
-    { id: 'researcher', name: 'リサーチ', icon: '🔍', description: '調査・分析', color: '#c4782a' },
-    { id: 'financial_advisor', name: 'FP', icon: '💰', description: '資産運用', color: '#c4a42a' },
+    { id: 'default',          name: 'あなたのAI',   icon: '🤖', description: 'あなたのAI',   color: '#d87898' },
+    { id: 'lawyer',           name: '弁護士',     icon: '⚖️',  description: '法律・契約',   color: '#4a7ab5' },
+    { id: 'accountant',       name: '税理士',     icon: '📊', description: '税務・会計',   color: '#3a9a6a' },
+    { id: 'engineer',         name: 'エンジニア', icon: '💻', description: '開発・設計',   color: '#4a6ab5' },
+    { id: 'researcher',       name: 'リサーチ',   icon: '🔍', description: '調査・分析',   color: '#c4782a' },
+    { id: 'financial_advisor',name: 'FP',         icon: '💰', description: '資産運用',     color: '#c4a42a' },
 ] as const;
 type AgentId = typeof AGENTS[number]['id'];
 
 // ─── Agent selection bar ─────────────────────────────────
 function AgentBar({ selected, onSelect }: { selected: AgentId; onSelect: (id: AgentId) => void }) {
+    const aiNickname = getAiNickname();
     return (
-        <div
-            className="agent-scroll-row flex-1 py-2 px-1"
-        >
-            {AGENTS.map(agent => {
-                const active = selected === agent.id;
-                const c = agent.color;
-                return (
-                    <motion.button
-                        key={agent.id}
-                        onClick={() => onSelect(agent.id)}
-                        whileTap={{ scale: 0.92 }}
-                        layout
-                        className="flex items-center rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-250"
-                        style={{
-                            padding: '6px 14px',
-                            background: active ? `${c}20` : 'var(--background-secondary)',
-                            border: `1.5px solid ${active ? c : 'var(--border)'}`,
-                            color: active ? c : 'var(--foreground-muted)',
-                            boxShadow: active ? `0 2px 10px ${c}30` : 'none',
-                        }}
-                    >
-                        {agent.name}
-                    </motion.button>
-                );
-            })}
+        <div className="flex-1 flex flex-col min-w-0">
+            <p className="text-[10px] mb-1.5 font-medium" style={{ color: 'var(--foreground-muted)', opacity: 0.6 }}>
+                誰に相談しますか？
+            </p>
+            <div className="agent-scroll-row py-0.5 px-0.5">
+                {AGENTS.map(agent => {
+                    const active = selected === agent.id;
+                    const c = agent.color;
+                    const displayName = agent.id === 'default' ? aiNickname : agent.name;
+                    return (
+                        <motion.button
+                            key={agent.id}
+                            onClick={() => onSelect(agent.id)}
+                            whileTap={{ scale: 0.92 }}
+                            layout
+                            className="flex items-center rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all duration-250"
+                            style={{
+                                padding: '6px 14px',
+                                background: active ? `${c}20` : 'var(--background-secondary)',
+                                border: `1.5px solid ${active ? c : 'var(--border)'}`,
+                                color: active ? c : 'var(--foreground-muted)',
+                                boxShadow: active ? `0 2px 10px ${c}30` : 'none',
+                            }}
+                        >
+                            {displayName}
+                        </motion.button>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -359,7 +369,7 @@ function EmotionWidget({ emotion }: { emotion: EmotionState | null }) {
                                         />
                                     ))}
                                 </span>
-                                <span className="ml-1 text-[10px] tabular-nums" style={{ color: 'var(--foreground-muted)' }}>{pct}%</span>
+                                <span className="ml-1 text-[10px] tabular-nums" style={{ color: 'var(--foreground-muted)' }}>AIとの絆：{pct}%</span>
                             </span>
                         </motion.span>
                     )}
@@ -887,9 +897,11 @@ export default function ChatPage({ conversationId, onConversationCreated }: Chat
         return (
             <div className="flex-1 flex flex-col h-screen">
                 {/* Agent bar */}
-                <div className="px-6 pt-3 pb-1 flex items-center gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="px-4 pt-2 pb-1 flex items-end gap-3" style={{ borderBottom: '1px solid var(--border)' }}>
                     <AgentBar selected={selectedAgent} onSelect={handleAgentSelect} />
-                    <EmotionWidget emotion={emotion} />
+                    <div className="flex-shrink-0 pb-1">
+                        <EmotionWidget emotion={emotion} />
+                    </div>
                 </div>
 
                 {/* Center content */}

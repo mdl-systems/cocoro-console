@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Activity, RefreshCw, MessageCircle, Shield, TrendingUp,
     CheckCircle2, XCircle, Clock, BarChart3, AlertTriangle, Link2,
+    Cpu, Users, Database, Zap,
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -23,6 +24,14 @@ interface ServiceStatus {
     status: 'online' | 'offline' | 'unknown';
     latencyMs: number | null;
 }
+
+// サービスIDを一般向け表示名・アイコンに変換
+const SERVICE_DISPLAY: Record<string, { label: string; Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }> = {
+    core:  { label: 'AIエンジン',   Icon: Cpu },
+    agent: { label: '専門家チーム', Icon: Users },
+    db:    { label: '会話データ',   Icon: Database },
+    redis: { label: '高速メモリ',   Icon: Zap },
+};
 
 interface Conversation {
     id: string;
@@ -54,6 +63,8 @@ function ServiceCard({ svc, index }: { svc: ServiceStatus; index: number }) {
     const unknown = svc.status === 'unknown';
     const color = online ? '#34d399' : unknown ? '#f59e0b' : '#f87171';
     const label = online ? '稼働中' : unknown ? '不明' : 'オフライン';
+    const display = SERVICE_DISPLAY[svc.id] ?? { label: svc.name, Icon: Activity };
+    const { Icon, label: displayName } = display;
 
     return (
         <motion.div
@@ -64,7 +75,10 @@ function ServiceCard({ svc, index }: { svc: ServiceStatus; index: number }) {
         >
             {/* Icon + status dot */}
             <div className="flex items-center justify-between">
-                <span className="text-2xl">{svc.icon}</span>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ background: `${color}14`, border: `1px solid ${color}28` }}>
+                    <Icon size={16} style={{ color }} />
+                </div>
                 <span className="relative flex-shrink-0 w-2.5 h-2.5">
                     <span className="block w-2.5 h-2.5 rounded-full" style={{ background: color }} />
                     {online && <span className="absolute inset-0 rounded-full animate-ping opacity-40" style={{ background: color }} />}
@@ -73,15 +87,16 @@ function ServiceCard({ svc, index }: { svc: ServiceStatus; index: number }) {
 
             {/* Name + label */}
             <div>
-                <div className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{svc.name}</div>
+                <div className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>{displayName}</div>
                 <div className="text-xs mt-0.5 font-medium" style={{ color }}>{label}</div>
             </div>
 
-            {/* Meta */}
-            <div className="text-[10px] flex items-center justify-between" style={{ color: 'var(--foreground-muted)' }}>
-                {svc.port > 0 ? <span>:{svc.port}</span> : <span>ローカル</span>}
-                {svc.latencyMs != null && <span>{svc.latencyMs}ms</span>}
-            </div>
+            {/* Latency only (no port) */}
+            {svc.latencyMs != null && (
+                <div className="text-[10px]" style={{ color: 'var(--foreground-muted)' }}>
+                    応答: {svc.latencyMs}ms
+                </div>
+            )}
         </motion.div>
     );
 }
@@ -98,7 +113,7 @@ function AgentChart({ agents }: { agents: AgentStat[] }) {
                     transition={{ delay: i * 0.05 }}
                 >
                     <div className="flex items-center justify-between text-[11px] mb-1">
-                        <span style={{ color: 'var(--foreground)' }}>{a.icon} {a.name}</span>
+                        <span style={{ color: 'var(--foreground)' }}>{a.name}</span>
                         <span className="font-mono tabular-nums" style={{ color: 'var(--foreground-muted)' }}>{a.count}回</span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--background-tertiary)' }}>
@@ -254,7 +269,7 @@ export default function DashboardPage() {
                         <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"
                             style={{ color: 'var(--foreground)' }}>
                             <Link2 size={14} style={{ color: 'var(--accent-primary)' }} />
-                            シンクロ率 推移（30日）
+                            AIとの絆 推移（30日）
                         </h3>
                         {syncHistory.length > 0 ? (
                             <ResponsiveContainer width="100%" height={140}>
@@ -278,7 +293,7 @@ export default function DashboardPage() {
                                     />
                                     <Tooltip
                                         contentStyle={{ background: 'var(--background-secondary)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }}
-                                        formatter={(v) => [`${Math.round((Number(v) || 0) * 100)}%`, 'シンクロ率']}
+                                        formatter={(v) => [`${Math.round((Number(v) || 0) * 100)}%`, 'AIとの絆']}
                                         labelFormatter={l => `📅 ${l}`}
                                     />
                                     <Area type="monotone" dataKey="value"
@@ -299,8 +314,8 @@ export default function DashboardPage() {
                 {/* ── Summary numbers ───────────────────────────── */}
                 <div className="grid grid-cols-2 gap-3">
                     {[
-                        { label: '総会話数', value: totalConvs, icon: MessageCircle, color: 'var(--accent-primary)' },
-                        { label: '総メッセージ数', value: totalMsgs, icon: TrendingUp, color: '#a78bfa' },
+                        { label: '会話数', value: totalConvs, icon: MessageCircle, color: 'var(--accent-primary)' },
+                        { label: 'メッセージ数', value: totalMsgs, icon: TrendingUp, color: '#a78bfa' },
                     ].map(({ label, value, icon: Icon, color }) => (
                         <motion.div key={label}
                             initial={{ opacity: 0, y: 10 }}
@@ -355,7 +370,7 @@ export default function DashboardPage() {
                         <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"
                             style={{ color: 'var(--foreground)' }}>
                             <BarChart3 size={14} style={{ color: 'var(--accent-primary)' }} />
-                            エージェント使用状況
+                            専門家の活動
                         </h3>
                         <AgentChart agents={agents} />
                     </motion.div>
