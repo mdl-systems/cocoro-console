@@ -24,27 +24,30 @@ export default function DailyBriefingBanner({ onNavigateTasks }: DailyBriefingBa
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const stored = localStorage.getItem(STORAGE_KEY);
+        if (typeof window === 'undefined') return;
+        try {
+            const today = new Date().toISOString().slice(0, 10);
+            const stored = localStorage.getItem(STORAGE_KEY);
 
-        // Show only once per day, and only between 6:00–11:00
-        const now = new Date();
-        const hour = now.getHours();
-        if (stored === today) return;          // already shown today
-        if (hour < 6 || hour >= 11) return;    // outside morning window
+            // Show only once per day, and only between 6:00–11:00
+            const now = new Date();
+            const hour = now.getHours();
+            if (stored === today) return;          // already shown today
+            if (hour < 6 || hour >= 11) return;    // outside morning window
 
-        setLoading(true);
-        fetch('/api/brief/daily')
-            .then(r => r.json())
-            .then(data => {
-                if (data.data) {
-                    setBrief(data.data);
-                    setVisible(true);
-                    localStorage.setItem(STORAGE_KEY, today);
-                }
-            })
-            .catch(() => { /* ignore */ })
-            .finally(() => setLoading(false));
+            setLoading(true);
+            fetch('/api/brief/daily')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.data) {
+                        setBrief(data.data);
+                        setVisible(true);
+                        localStorage.setItem(STORAGE_KEY, today);
+                    }
+                })
+                .catch(() => { /* ignore */ })
+                .finally(() => setLoading(false));
+        } catch { /* localStorage blocked (e.g. private mode) */ }
     }, []);
 
     function dismiss() {

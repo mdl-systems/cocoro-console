@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 // ─── Theme helpers ────────────────────────────────────────────
 function applyTheme(theme: Theme) {
+    if (typeof window === 'undefined') return;
     const root = document.documentElement;
     if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         root.setAttribute('data-theme', 'dark');
@@ -330,6 +331,7 @@ export default function SettingsPage() {
 
     // Load stored settings from localStorage
     useEffect(() => {
+        if (typeof window === 'undefined') return;
         try {
             const stored = localStorage.getItem('cocoro_settings');
             if (stored) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(stored) });
@@ -350,7 +352,9 @@ export default function SettingsPage() {
     const patchSettings = useCallback((patch: Partial<AppSettings>) => {
         setSettings(prev => {
             const next = { ...prev, ...patch } as AppSettings;
-            localStorage.setItem('cocoro_settings', JSON.stringify(next));
+            if (typeof window !== 'undefined') {
+                try { localStorage.setItem('cocoro_settings', JSON.stringify(next)); } catch { /* ignore */ }
+            }
             return next;
         });
     }, []);
