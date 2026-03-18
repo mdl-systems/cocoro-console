@@ -44,6 +44,40 @@ interface SidebarProps {
     onMobileClose?: () => void;
 }
 
+// ── Simple tooltip wrapper ────────────────────────────────────
+function Tooltip({ label, children, show }: { label: string; children: React.ReactNode; show: boolean }) {
+    const [visible, setVisible] = useState(false);
+    if (!show) return <>{children}</>;
+    return (
+        <div className="relative flex"
+            onMouseEnter={() => setVisible(true)}
+            onMouseLeave={() => setVisible(false)}>
+            {children}
+            <AnimatePresence>
+                {visible && (
+                    <motion.div
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -4 }}
+                        transition={{ duration: 0.12 }}
+                        className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 pointer-events-none"
+                    >
+                        <div className="px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
+                            style={{
+                                background: '#1a1a1a',
+                                color: '#fff',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                            }}>
+                            {label}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
 export default function Sidebar({
     currentPage,
     onNavigate,
@@ -55,6 +89,9 @@ export default function Sidebar({
     mobileOpen = false,
     onMobileClose,
 }: SidebarProps) {
+    // collapsed: サイドバーの折りたたみ状態（デフォルト展開）
+    const [collapsed, setCollapsed] = useState(false);
+    // expanded: チャット履歴パネルの開閉
     const [expanded, setExpanded] = useState(false);
     const [hoveredConv, setHoveredConv] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
@@ -106,7 +143,7 @@ export default function Sidebar({
         return groups.filter(g => g.items.length > 0);
     }
 
-    // ── Shared conversation panel content ────────────────────
+    // ── Shared conversation panel ─────────────────────────────
     const convPanel = (
         <>
             <div className="flex items-center justify-between px-4 py-3">
@@ -180,7 +217,7 @@ export default function Sidebar({
         </>
     );
 
-    // ── Mobile: full-screen drawer overlay ───────────────────
+    // ── Mobile drawer ─────────────────────────────────────────
     if (isMobile) {
         return (
             <AnimatePresence>
@@ -240,81 +277,120 @@ export default function Sidebar({
         );
     }
 
-    // ── Desktop: expanded nav sidebar (icon + label) ─────────
+    // ── Desktop: collapsible sidebar ──────────────────────────
+    const sidebarWidth = collapsed ? 52 : 200;
+
     return (
         <>
-            <aside
-                className="flex flex-col py-3 border-r flex-shrink-0"
-                style={{ width: 200, background: 'var(--background-secondary)', borderColor: 'var(--border)' }}
+            <motion.aside
+                animate={{ width: sidebarWidth }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="flex flex-col py-3 border-r flex-shrink-0 overflow-hidden"
+                style={{ background: 'var(--background-secondary)', borderColor: 'var(--border)' }}
             >
-                {/* Logo + title */}
-                <div className="flex items-center gap-2.5 px-4 mb-4">
-                    <button onClick={() => navigate('chat')} className="transition-transform hover:scale-105 flex-shrink-0" title="Cocoro">
-                        <CocoroLogo size={26} />
-                    </button>
-                    <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>Cocoro OS</span>
+                {/* Logo row + collapse toggle */}
+                <div className={`flex items-center mb-3 px-2 ${collapsed ? 'flex-col gap-2' : 'justify-between gap-1'}`}>
+                    {!collapsed && (
+                        <button onClick={() => navigate('chat')}
+                            className="flex items-center gap-2 px-2 transition-opacity hover:opacity-80 flex-shrink-0 min-w-0"
+                            title="Cocoro OS">
+                            <CocoroLogo size={24} />
+                            <span className="text-sm font-semibold truncate" style={{ color: 'var(--foreground)' }}>
+                                Cocoro OS
+                            </span>
+                        </button>
+                    )}
+                    {collapsed && (
+                        <button onClick={() => navigate('chat')}
+                            className="w-9 h-9 flex items-center justify-center transition-opacity hover:opacity-80"
+                            title="Cocoro OS">
+                            <CocoroLogo size={24} />
+                        </button>
+                    )}
+                    {/* Collapse toggle */}
+                    <Tooltip label={collapsed ? 'サイドバーを開く' : 'サイドバーを閉じる'} show={collapsed}>
+                        <button
+                            onClick={() => { setCollapsed(c => !c); if (!collapsed) setExpanded(false); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[rgba(216,120,152,0.08)] flex-shrink-0"
+                            style={{ color: 'var(--foreground-muted)' }}
+                            title={collapsed ? 'サイドバーを開く' : 'サイドバーを閉じる'}
+                        >
+                            {collapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+                        </button>
+                    </Tooltip>
                 </div>
 
                 {/* New chat + history toggle */}
                 <div className="px-2 mb-2 space-y-0.5">
-                    <button
-                        onClick={onNewChat}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-sm"
-                        style={{ color: 'var(--foreground-muted)' }}
-                    >
-                        <SquarePen size={15} />
-                        <span>新しいチャット</span>
-                    </button>
-                    <button
-                        onClick={() => setExpanded(!expanded)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all text-sm"
-                        style={{ color: 'var(--foreground-muted)' }}
-                        title={expanded ? '閉じる' : '履歴'}
-                    >
-                        {expanded ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
-                        <span>チャット履歴</span>
-                    </button>
+                    <Tooltip label="新しいチャット" show={collapsed}>
+                        <button
+                            onClick={onNewChat}
+                            className={`w-full flex items-center rounded-lg transition-all text-sm hover:bg-[rgba(216,120,152,0.06)] ${collapsed ? 'justify-center px-0 py-2 h-9' : 'gap-2.5 px-3 py-2'}`}
+                            style={{ color: 'var(--foreground-muted)' }}
+                            title="新しいチャット"
+                        >
+                            <SquarePen size={15} style={{ flexShrink: 0 }} />
+                            {!collapsed && <span>新しいチャット</span>}
+                        </button>
+                    </Tooltip>
+                    <Tooltip label="チャット履歴" show={collapsed}>
+                        <button
+                            onClick={() => setExpanded(!expanded)}
+                            className={`w-full flex items-center rounded-lg transition-all text-sm hover:bg-[rgba(216,120,152,0.06)] ${collapsed ? 'justify-center px-0 py-2 h-9' : 'gap-2.5 px-3 py-2'}`}
+                            style={{ color: expanded ? 'var(--accent-primary)' : 'var(--foreground-muted)' }}
+                            title="チャット履歴"
+                        >
+                            {expanded
+                                ? <PanelLeftClose size={15} style={{ flexShrink: 0 }} />
+                                : <PanelLeftOpen size={15} style={{ flexShrink: 0 }} />}
+                            {!collapsed && <span>チャット履歴</span>}
+                        </button>
+                    </Tooltip>
                 </div>
 
-                <div style={{ height: 1, background: 'var(--border)', margin: '4px 12px 8px' }} />
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 10px 8px' }} />
 
                 {/* Nav items */}
                 <nav className="flex-1 px-2 space-y-0.5">
                     {bottomNav.map(({ id, icon: Icon, label }) => {
                         const isActive = currentPage === id;
                         return (
-                            <button
-                                key={id}
-                                onClick={() => navigate(id)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all duration-150 text-sm text-left"
-                                style={{
-                                    color: isActive ? 'var(--accent-primary)' : 'var(--foreground-muted)',
-                                    background: isActive ? 'rgba(216, 120, 152, 0.10)' : 'transparent',
-                                    fontWeight: isActive ? 500 : 400,
-                                }}
-                            >
-                                <Icon size={15} style={{ flexShrink: 0 }} />
-                                <span>{label}</span>
-                            </button>
+                            <Tooltip key={id} label={label} show={collapsed}>
+                                <button
+                                    onClick={() => navigate(id)}
+                                    className={`w-full flex items-center rounded-lg transition-all duration-150 text-sm text-left hover:bg-[rgba(216,120,152,0.06)] ${collapsed ? 'justify-center px-0 py-2 h-9' : 'gap-2.5 px-3 py-2'}`}
+                                    style={{
+                                        color: isActive ? 'var(--accent-primary)' : 'var(--foreground-muted)',
+                                        background: isActive ? 'rgba(216, 120, 152, 0.10)' : 'transparent',
+                                        fontWeight: isActive ? 500 : 400,
+                                    }}
+                                    title={collapsed ? label : undefined}
+                                >
+                                    <Icon size={15} style={{ flexShrink: 0 }} />
+                                    {!collapsed && <span>{label}</span>}
+                                </button>
+                            </Tooltip>
                         );
                     })}
                 </nav>
 
-                {/* User avatar area */}
-                <div className="mt-auto pt-3 px-3" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                            style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))', color: '#fff' }}>
-                            <Sprout size={13} />
+                {/* User avatar */}
+                <div className="mt-auto pt-3 px-2" style={{ borderTop: '1px solid var(--border)' }}>
+                    <Tooltip label="マイノード" show={collapsed}>
+                        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-2.5 px-1'}`}>
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                                style={{ background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))', color: '#fff' }}>
+                                <Sprout size={13} />
+                            </div>
+                            {!collapsed && <span className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>マイノード</span>}
                         </div>
-                        <span className="text-xs truncate" style={{ color: 'var(--foreground-muted)' }}>マイノード</span>
-                    </div>
+                    </Tooltip>
                 </div>
-            </aside>
+            </motion.aside>
 
             {/* Expandable conversation history panel */}
             <AnimatePresence>
-                {expanded && (
+                {expanded && !collapsed && (
                     <motion.div
                         initial={{ width: 0, opacity: 0 }}
                         animate={{ width: 240, opacity: 1 }}
@@ -331,7 +407,7 @@ export default function Sidebar({
     );
 }
 
-// ── Mobile hamburger button (exported for page.tsx) ──────────
+// ── Mobile hamburger button ───────────────────────────────────
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {
     return (
         <button

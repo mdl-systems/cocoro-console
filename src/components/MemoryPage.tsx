@@ -39,12 +39,12 @@ const TYPE_CONFIG = {
 type MemType = keyof typeof TYPE_CONFIG;
 
 const CATEGORY_TABS = [
-    { id: null, label: 'すべて', emoji: '📋' },
-    { id: 'prefer', label: '好み', emoji: '💡' },
-    { id: 'event', label: '出来事', emoji: '📅' },
-    { id: 'person', label: '人物', emoji: '👤' },
-    { id: 'emotion', label: '感情', emoji: '💜' },
-    { id: 'manual', label: '手動', emoji: '✏️' },
+    { id: null,     label: 'すべて' },
+    { id: 'prefer', label: '好み' },
+    { id: 'event',  label: '出来事' },
+    { id: 'person', label: '人物' },
+    { id: 'emotion',label: '感情' },
+    { id: 'manual', label: '手動' },
 ] as const;
 
 // ─── 信頼度バー ───────────────────────────────────────────────
@@ -76,8 +76,8 @@ function MemoryCard({ mem, idx, onDelete }: {
     const cfg = TYPE_CONFIG[mem.type as MemType] || TYPE_CONFIG.short_term;
     const Icon = cfg.icon;
 
-    // カテゴリ絵文字
-    const catEmoji = CATEGORY_TABS.find(t => t.id === mem.category)?.emoji ?? '📌';
+    // カテゴリラベル（絵文字なし）
+    const _cat = CATEGORY_TABS.find(t => t.id === mem.category)?.label;
 
     return (
         <motion.div
@@ -96,7 +96,7 @@ function MemoryCard({ mem, idx, onDelete }: {
                         <Icon size={9} className="inline mr-0.5" />{cfg.label}
                     </span>
                     <span className="text-[11px]" style={{ color: 'var(--foreground-muted)' }}>
-                        {catEmoji} {mem.category}
+                        {mem.category}
                     </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -398,8 +398,8 @@ export default function MemoryPage() {
             {/* ── Main tabs ─────────────────────────────────────── */}
             <div className="flex gap-0 px-8 pt-4" style={{ borderBottom: '1px solid var(--border)' }}>
                 {[
-                    { id: 'memory', label: '🧠 記憶', },
-                    { id: 'schedule', label: '📅 スケジュール' },
+                    { id: 'memory', label: '記憶' },
+                    { id: 'schedule', label: 'スケジュール' },
                 ].map(tab => (
                     <button key={tab.id}
                         onClick={() => setActiveTab(tab.id as typeof activeTab)}
@@ -473,7 +473,7 @@ export default function MemoryPage() {
                                         border: `1px solid ${catFilter === tab.id ? 'rgba(216,120,152,0.4)' : 'var(--border)'}`,
                                         color: catFilter === tab.id ? 'var(--accent-primary)' : 'var(--foreground-muted)',
                                     }}>
-                                    <span>{tab.emoji}</span> {tab.label}
+                                    {tab.label}
                                 </button>
                             ))}
                         </div>
