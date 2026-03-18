@@ -11,13 +11,29 @@
 export const CORE_URL = process.env.COCORO_CORE_URL || 'http://localhost:8001'
 export const CORE_ENABLED = process.env.COCORO_CORE_ENABLED === 'true'
 
+/**
+ * リクエストの Host ヘッダーに応じて cocoro-core の接続先 URL を返す。
+ *
+ * - 外部アクセス（console.cocoro-os.com）
+ *     → COCORO_CORE_EXTERNAL_URL（デフォルト: https://api.cocoro-os.com）
+ * - LAN 内アクセス（localhost / Docker コンテナ遘3000）
+ *     → COCORO_CORE_URL（デフォルト: http://cocoro-core:8000）
+ */
+export function getCoreUrl(req?: Request | { headers: { get(name: string): string | null } }): string {
+    const host = req?.headers?.get?.('host') ?? ''
+    if (host.includes('cocoro-os.com')) {
+        return process.env.COCORO_CORE_EXTERNAL_URL ?? 'https://api.cocoro-os.com'
+    }
+    return process.env.COCORO_CORE_URL ?? 'http://localhost:8001'
+}
+
 // ─── JWT キャッシュ（globalThis で HMR をまたいで保持）─────────
 declare global {
     // eslint-disable-next-line no-var
     var __cocoroJwt: { token: string; expiresAt: number } | null | undefined
 }
 
-async function getToken(): Promise<string | null> {
+async function getToken(coreUrl?: string): Promise<string | null> {
     const apiKey = process.env.COCORO_CORE_API_KEY
     if (!apiKey) {
         console.warn('[cocoro-core] COCORO_CORE_API_KEY が未設定です')
@@ -30,8 +46,9 @@ async function getToken(): Promise<string | null> {
         return globalThis.__cocoroJwt.token
     }
 
+    const url = coreUrl ?? CORE_URL
     try {
-        const res = await fetch(`${CORE_URL}/auth/token`, {
+        const res = await fetch(`${url}/auth/token`, {
             method: 'POST',
             headers: {
                 'X-API-Key': apiKey,
@@ -67,12 +84,13 @@ async function getToken(): Promise<string | null> {
     }
 }
 
-async function coreGet<T>(path: string): Promise<T | null> {
+async function coreGet<T>(path: string, req?: Parameters<typeof getCoreUrl>[0]): Promise<T | null> {
     if (!CORE_ENABLED) return null
-    const token = await getToken()
+    const coreUrl = getCoreUrl(req)
+    const token = await getToken(coreUrl)
     if (!token) return null
     try {
-        const res = await fetch(`${CORE_URL}${path}`, {
+        const res = await fetch(`${coreUrl}${path}`, {
             headers: { 'Authorization': `Bearer ${token}` },
             signal: AbortSignal.timeout(8000),
         })
@@ -84,12 +102,13 @@ async function coreGet<T>(path: string): Promise<T | null> {
     }
 }
 
-async function corePost<T>(path: string, body: unknown): Promise<T | null> {
+async function corePost<T>(path: string, body: unknown, req?: Parameters<typeof getCoreUrl>[0]): Promise<T | null> {
     if (!CORE_ENABLED) return null
-    const token = await getToken()
+    const coreUrl = getCoreUrl(req)
+    const token = await getToken(coreUrl)
     if (!token) return null
     try {
-        const res = await fetch(`${CORE_URL}${path}`, {
+        const res = await fetch(`${coreUrl}${path}`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

@@ -1,10 +1,10 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { NextRequest } from 'next/server';
 import { checkRate, requireSession, jsonSuccess } from '@/core/api-helper';
+import { getCoreUrl } from '@/lib/cocoro-core';
 
-const COCORO_CORE_URL = process.env.COCORO_CORE_URL ?? 'http://localhost:8001';
 const COCORO_API_KEY = process.env.COCORO_CORE_API_KEY ?? process.env.COCORO_API_KEY ?? 'cocoro-dev-2026';
 
 export async function GET(request: NextRequest) {
@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
 
     try {
         // Try to fetch brief from cocoro-core
-        const res = await fetch(`${COCORO_CORE_URL}/brain/brief/daily`, {
+        const coreUrl = getCoreUrl(request);
+        const res = await fetch(`${coreUrl}/brain/brief/daily`, {
             headers: {
                 Authorization: `Bearer ${COCORO_API_KEY}`,
                 'Content-Type': 'application/json',

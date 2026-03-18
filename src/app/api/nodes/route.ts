@@ -4,8 +4,8 @@ export const runtime = 'nodejs';
 import { NextRequest } from 'next/server';
 import { checkRate, requireSession, jsonSuccess, jsonError } from '@/core/api-helper';
 import { getDatabase } from '@/db';
+import { getCoreUrl } from '@/lib/cocoro-core';
 
-const COCORO_CORE_URL = process.env.COCORO_CORE_URL ?? 'http://localhost:8001';
 const COCORO_API_KEY = process.env.COCORO_CORE_API_KEY ?? process.env.COCORO_API_KEY ?? 'cocoro-dev-2026';
 
 // ── スキーマ初期化（関数内で遅延実行） ─────────────────────────
@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
         // cocoro-core に登録されているノードも取得して統合
         let coreNodes: Record<string, unknown>[] = [];
         try {
-            const res = await fetch(`${COCORO_CORE_URL}/nodes`, {
+            const coreUrl = getCoreUrl(request);
+            const res = await fetch(`${coreUrl}/nodes`, {
                 headers: { Authorization: `Bearer ${COCORO_API_KEY}` },
                 signal: AbortSignal.timeout(3000),
             });

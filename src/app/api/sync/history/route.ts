@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
@@ -8,8 +8,8 @@ export const runtime = 'nodejs';
  */
 import { NextRequest } from 'next/server';
 import { checkRate, requireSession, jsonSuccess } from '@/core/api-helper';
+import { getCoreUrl } from '@/lib/cocoro-core';
 
-const COCORO_CORE_URL = process.env.COCORO_CORE_URL ?? 'http://localhost:8001';
 const COCORO_API_KEY = process.env.COCORO_CORE_API_KEY ?? process.env.COCORO_API_KEY ?? 'cocoro-dev-2026';
 
 // Fallback mock history (30 days)
@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
     if (sessionCheck) return sessionCheck;
 
     try {
-        const res = await fetch(`${COCORO_CORE_URL}/sync/history?days=30`, {
+        const coreUrl = getCoreUrl(request);
+        const res = await fetch(`${coreUrl}/sync/history?days=30`, {
             headers: { Authorization: `Bearer ${COCORO_API_KEY}` },
             signal: AbortSignal.timeout(4000),
         });

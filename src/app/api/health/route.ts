@@ -1,10 +1,10 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { NextRequest } from 'next/server';
 import { checkRate, requireSession, jsonSuccess } from '@/core/api-helper';
+import { getCoreUrl } from '@/lib/cocoro-core';
 
-const COCORO_CORE_URL = process.env.COCORO_CORE_URL ?? 'http://localhost:8001';
 const COCORO_AGENT_URL = process.env.COCORO_AGENT_URL ?? 'http://localhost:8002';
 const COCORO_API_KEY = process.env.COCORO_CORE_API_KEY ?? process.env.COCORO_API_KEY ?? 'cocoro-dev-2026';
 
@@ -28,8 +28,9 @@ export async function GET(request: NextRequest) {
     // NOTE: ヘルスチェックはセッション認証不要。
     // ConnectionErrorBanner がセッション確立前にも呼ぶため。
 
+    const coreUrl = getCoreUrl(request);
     const [core, agent] = await Promise.all([
-        ping(`${COCORO_CORE_URL}/health`),
+        ping(`${coreUrl}/health`),
         ping(`${COCORO_AGENT_URL}/health`),
     ]);
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
             id: 'core',
             name: 'cocoro-core',
             icon: '🧠',
-            port: Number(new URL(COCORO_CORE_URL).port) || 8001,
+            port: Number(new URL(coreUrl).port) || 8001,
             status: core.ok ? 'online' : 'offline',
             latencyMs: core.latencyMs,
         },
