@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Bot, Play, Loader2, Search, BarChart3, Megaphone, Code,
     Activity, CheckCircle2, XCircle, Clock, Zap, RefreshCw,
-    ChevronRight, Send, X, AlertCircle, type LucideProps,
+    ChevronRight, Send, X, AlertCircle, Plus, Crown, Users, UserCog,
+    type LucideProps,
 } from 'lucide-react';
 import type { ForwardRefExoticComponent, RefAttributes } from 'react';
 
@@ -44,6 +45,16 @@ interface Stats {
     byStatus: Record<string, number>;
     byAgent: Array<{ agent: string; count: number; avgDuration: number }>;
     recentTasks: Task[];
+}
+
+// ─── 組織階層型定義 ───────────────────────────────────────
+interface OrgNode {
+    id: string;
+    name: string;
+    role: 'ceo' | 'director' | 'worker' | string;
+    department?: string;
+    status?: string;
+    children?: OrgNode[];
 }
 
 // ─── アイコン・カラーマップ ───────────────────────────────
@@ -310,6 +321,194 @@ function TaskModal({ agent, onClose, onSubmit }: {
     );
 }
 
+// ─── 組織階層ツリー ───────────────────────────────────────
+function OrgTreeNode({
+    node, depth = 0, isLast = false, onAddWorker,
+}: {
+    node: OrgNode;
+    depth?: number;
+    isLast?: boolean;
+    onAddWorker?: (directorId: string, directorName: string) => void;
+}) {
+    const [collapsed, setCollapsed] = useState(false);
+    const hasChildren = (node.children?.length ?? 0) > 0;
+
+    // レベルごとのスタイル
+    const levelStyle: Record<string, { color: string; bg: string; icon: React.ReactNode; label: string }> = {
+        ceo:      { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: <Crown size={13} />,   label: 'CEO' },
+        director: { color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', icon: <UserCog size={13} />, label: 'Director' },
+        worker:   { color: '#34d399', bg: 'rgba(52,211,153,0.12)',  icon: <Bot size={13} />,     label: 'Worker' },
+    };
+    const s = levelStyle[node.role] ?? levelStyle.worker;
+
+    const statusDot: Record<string, string> = {
+        active: '#34d399', idle: '#f59e0b', offline: '#6b7280', busy: '#60a5fa',
+    };
+    const dotColor = statusDot[node.status ?? ''] ?? '#6b7280';
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: depth * 0.05 }}
+        >
+            {/* Node row */}
+            <div
+                className="flex items-center gap-2 group rounded-lg px-2 py-1.5 transition-colors hover:bg-white/[0.03]"
+                style={{ paddingLeft: `${depth * 20 + 8}px` }}
+            >
+                {/* Tree connector */}
+                {depth > 0 && (
+                    <span className="flex-shrink-0 text-[var(--border)] select-none" style={{ color: 'var(--border)', fontSize: 12 }}>
+                        {isLast ? '└' : '├'}
+                    </span>
+                )}
+
+                {/* Collapse toggle for nodes with children */}
+                {hasChildren ? (
+                    <button
+                        onClick={() => setCollapsed(c => !c)}
+                        className="flex-shrink-0 w-4 h-4 flex items-center justify-center rounded transition-colors hover:bg-white/[0.08]"
+                        style={{ color: 'var(--foreground-muted)' }}
+                    >
+                        <ChevronRight size={11} className={`transition-transform ${collapsed ? '' : 'rotate-90'}`} />
+                    </button>
+                ) : (
+                    <span className="w-4 flex-shrink-0" />
+                )}
+
+                {/* Icon badge */}
+                <span className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center"
+                    style={{ background: s.bg, color: s.color }}>
+                    {s.icon}
+                </span>
+
+                {/* Name */}
+                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--foreground)' }}>
+                    {node.name}
+                </span>
+
+                {/* Role badge */}
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                    style={{ background: s.bg, color: s.color }}>
+                    {s.label}
+                </span>
+
+                {/* Status dot */}
+                {node.status && (
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dotColor }} />
+                )}
+
+                {/* Add Worker button (Director level only) */}
+                {node.role === 'director' && onAddWorker && (
+                    <button
+                        onClick={() => onAddWorker(node.id, node.name)}
+                        className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md transition-all"
+                        style={{
+                            background: 'rgba(167,139,250,0.15)',
+                            color: '#a78bfa',
+                            border: '1px solid rgba(167,139,250,0.3)',
+                        }}
+                        title="Workerを追加"
+                    >
+                        <Plus size={9} /> Worker追加
+                    </button>
+                )}
+            </div>
+
+            {/* Children */}
+            <AnimatePresence>
+                {!collapsed && hasChildren && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.18 }}
+                    >
+                        {node.children!.map((child, i) => (
+                            <OrgTreeNode
+                                key={child.id}
+                                node={child}
+                                depth={depth + 1}
+                                isLast={i === node.children!.length - 1}
+                                onAddWorker={onAddWorker}
+                            />
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+}
+
+function OrgHierarchyPanel({
+    onAddWorker,
+}: {
+    onAddWorker: (directorId: string, directorName: string) => void;
+}) {
+    const [hierarchy, setHierarchy] = useState<OrgNode | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch('/api/agent-proxy?path=/org/hierarchy')
+            .then(r => r.json())
+            .then(d => {
+                // レスポンス形式の正規化: { data: {...} } or 直接 {...}
+                const root: OrgNode = d.data ?? d;
+                setHierarchy(root);
+            })
+            .catch(() => setError('組織階層の取得に失敗しました'))
+            .finally(() => setLoading(false));
+    }, []);
+
+    return (
+        <div className="glass-panel p-4">
+            <div className="flex items-center gap-2 mb-3">
+                <Users size={14} style={{ color: 'var(--accent-primary)' }} />
+                <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>組織階層</span>
+                {hierarchy && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(216,120,152,0.1)', color: 'var(--accent-primary)' }}>
+                        ライブ
+                    </span>
+                )}
+            </div>
+
+            {loading && (
+                <div className="flex items-center justify-center py-6">
+                    <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent-primary)' }} />
+                </div>
+            )}
+            {error && (
+                <p className="text-xs py-3 text-center" style={{ color: '#f87171' }}>{error}</p>
+            )}
+            {hierarchy && (
+                <div className="space-y-0.5">
+                    <OrgTreeNode node={hierarchy} depth={0} isLast={true} onAddWorker={onAddWorker} />
+                </div>
+            )}
+
+            {/* 凡例 */}
+            <div className="flex items-center gap-4 mt-4 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                {[
+                    { color: '#f59e0b', label: 'CEO' },
+                    { color: '#a78bfa', label: 'Director' },
+                    { color: '#34d399', label: 'Worker' },
+                ].map(({ color, label }) => (
+                    <div key={label} className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+                        <span className="text-[10px]" style={{ color: 'var(--foreground-muted)' }}>{label}</span>
+                    </div>
+                ))}
+                <span className="text-[10px] ml-auto" style={{ color: 'var(--foreground-muted)', opacity: 0.5 }}>
+                    Directorにホバーで Worker追加
+                </span>
+            </div>
+        </div>
+    );
+}
+
 // ─── メインページ ─────────────────────────────────────────
 export default function AgentsPage() {
     const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -321,11 +520,31 @@ export default function AgentsPage() {
     const [modalAgent, setModalAgent] = useState<AgentInfo | null>(null);
     const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
     const [agentOnline, setAgentOnline] = useState(true);
+    // Worker追加モーダル用（DirectorをAgentInfoに変換して既存モーダルを流用）
+    const [addWorkerTarget, setAddWorkerTarget] = useState<{ id: string; name: string } | null>(null);
 
     const showToast = (msg: string, ok = true) => {
         setToast({ msg, ok });
         setTimeout(() => setToast(null), 3000);
     };
+
+    // Worker追加ボタンクリック → タスク投入モーダルをDirectorへのタスクとして開く
+    const handleAddWorker = useCallback((directorId: string, directorName: string) => {
+        // DirectorをAgentInfoとして扱い既存モーダルを流用
+        const pseudoAgent: AgentInfo = {
+            id: directorId,
+            name: directorName,
+            department: 'engineering',
+            status: 'idle',
+            currentTask: null,
+            completedTasks: 0,
+            failedTasks: 0,
+            avgResponseTimeMs: 0,
+            lastActiveAt: null,
+        };
+        setAddWorkerTarget({ id: directorId, name: directorName });
+        setModalAgent(pseudoAgent);
+    }, []);
 
     const fetchAll = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -441,6 +660,15 @@ export default function AgentsPage() {
                         ))}
                     </div>
                 )}
+
+                {/* 組織階層ツリー */}
+                <div>
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--foreground)' }}>
+                        <Users size={14} style={{ color: 'var(--accent-primary)' }} />
+                        組織ツリー
+                    </h3>
+                    <OrgHierarchyPanel onAddWorker={handleAddWorker} />
+                </div>
 
                 {/* エージェント一覧 */}
                 <div>
