@@ -48,21 +48,46 @@ interface SidebarProps {
 // ── Tooltip ───────────────────────────────────────────────────
 function Tooltip({ label, children, show }: { label: string; children: React.ReactNode; show: boolean }) {
     const [visible, setVisible] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const wrapRef = useRef<HTMLDivElement>(null);
+
     if (!show) return <>{children}</>;
+
+    function handleMouseEnter() {
+        if (wrapRef.current) {
+            const rect = wrapRef.current.getBoundingClientRect();
+            setPos({ top: rect.top + rect.height / 2, left: rect.right + 8 });
+        }
+        setVisible(true);
+    }
+
     return (
-        <div className="relative flex w-full"
-            onMouseEnter={() => setVisible(true)}
+        <div ref={wrapRef} className="relative flex w-full"
+            onMouseEnter={handleMouseEnter}
             onMouseLeave={() => setVisible(false)}>
             {children}
+            {/* Portal-style: fixed position so overflow:hidden on sidebar doesn't clip */}
             <AnimatePresence>
                 {visible && (
                     <motion.div
                         initial={{ opacity: 0, x: -4 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -4 }}
                         transition={{ duration: 0.12 }}
-                        className="absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 pointer-events-none"
+                        style={{
+                            position: 'fixed',
+                            top: pos.top,
+                            left: pos.left,
+                            transform: 'translateY(-50%)',
+                            zIndex: 9999,
+                            pointerEvents: 'none',
+                        }}
                     >
                         <div className="px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
-                            style={{ background: '#1a1a1a', color: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                            style={{
+                                background: '#1a1a1a',
+                                color: '#fff',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                            }}>
                             {label}
                         </div>
                     </motion.div>
@@ -103,6 +128,39 @@ const NAV_ITEMS: { id: NavPage; icon: React.ComponentType<{ size?: number; style
     { id: 'security',  icon: Shield,          label: 'セキュリティ' },
     { id: 'settings',  icon: Settings,        label: '設定' },
 ];
+
+// ── NavButton: JS-controlled hover so active bg doesn't block CSS hover ──
+function NavButton({ isActive, collapsed, onClick, children }: {
+    isActive: boolean;
+    collapsed: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+}) {
+    const [hovered, setHovered] = useState(false);
+
+    let bg = 'transparent';
+    if (isActive) bg = 'rgba(216,120,152,0.10)';
+    else if (hovered) bg = 'rgba(216,120,152,0.06)';
+
+    return (
+        <button
+            onClick={onClick}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            className={`w-full flex items-center rounded-lg transition-all duration-150 text-sm text-left ${
+                collapsed ? 'justify-center p-2' : 'gap-2.5 px-3 py-1.5'
+            }`}
+            style={{
+                color: isActive ? 'var(--accent-primary)' : 'var(--foreground-muted)',
+                background: bg,
+                fontWeight: isActive ? 500 : 400,
+                cursor: 'pointer',
+            }}
+        >
+            {children}
+        </button>
+    );
+}
 
 // ══════════════════════════════════════════════════════════════
 // Desktop Sidebar — claude.ai layout
@@ -230,20 +288,14 @@ function DesktopSidebar({
                     const isActive = currentPage === id;
                     return (
                         <Tooltip key={id} label={label} show={collapsed}>
-                            <button
+                            <NavButton
+                                isActive={isActive}
+                                collapsed={collapsed}
                                 onClick={() => onNavigate(id)}
-                                className={`w-full flex items-center rounded-lg transition-all duration-150 text-sm text-left hover:bg-[rgba(216,120,152,0.06)] ${
-                                    collapsed ? 'justify-center p-2' : 'gap-2.5 px-3 py-1.5'
-                                }`}
-                                style={{
-                                    color: isActive ? 'var(--accent-primary)' : 'var(--foreground-muted)',
-                                    background: isActive ? 'rgba(216, 120, 152, 0.10)' : 'transparent',
-                                    fontWeight: isActive ? 500 : 400,
-                                }}
                             >
                                 <Icon size={15} style={{ flexShrink: 0 }} />
                                 {!collapsed && <span>{label}</span>}
-                            </button>
+                            </NavButton>
                         </Tooltip>
                     );
                 })}
